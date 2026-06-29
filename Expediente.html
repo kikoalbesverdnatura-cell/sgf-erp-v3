@@ -1,0 +1,601 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGF ERP · Expediente</title>
+  <?!= include("Styles"); ?>
+</head>
+
+<body>
+<div class="expedienteFullPage">
+
+  <div class="expedienteShell">
+
+    <header class="expedienteHero">
+      <div class="expAvatar" id="expAvatar">--</div>
+
+      <div class="expHeroMain">
+        <div class="expTitleRow">
+          <h1 id="expNombre">Cargando...</h1>
+          <span class="badge success" id="expEstado">--</span>
+        </div>
+
+        <p>
+          ID Trabajador: <strong id="expId">--</strong>
+          · <span id="expPrograma">--</span>
+          · Día <span id="expDias">0</span>
+        </p>
+
+        <div class="expHeroGrid">
+          <div><small>Departamento</small><strong id="expDepartamento">--</strong></div>
+          <div><small>Tutor</small><strong id="expTutor">--</strong></div>
+          <div><small>Incorporación</small><strong id="expFecha">--</strong></div>
+          <div><small>Hora entrada</small><strong id="expHora">--</strong></div>
+        </div>
+      </div>
+
+      <div class="expProgressBox">
+        <small>Progreso de incorporación</small>
+        <strong id="expPreparacion">0%</strong>
+        <p><span id="expChecks">0/0</span> completados</p>
+        <div class="miniProgress"><div id="expProgressFill"></div></div>
+      </div>
+
+      <div class="expRiskBox">
+        <small>Nivel de riesgo</small>
+        <strong id="expRiesgo">--</strong>
+        <p id="expEstadoGeneral">--</p>
+      </div>
+
+      <button class="expCloseBtn" onclick="volverPersonas()">×</button>
+    </header>
+
+
+    <nav class="expTabs">
+      <a href="#resumen">🏠 Resumen</a>
+      <a href="#checklist">✅ Checklist</a>
+      <a href="#productividad">📈 Productividad</a>
+      <a href="#errores">⚠️ Errores</a>
+      <a href="#observaciones">💬 Observaciones</a>
+      <a href="#timeline">🕘 Timeline</a>
+    </nav>
+
+
+    <main class="expContent" id="resumen">
+
+      <section class="expMainGrid">
+
+        <aside class="expLeft">
+
+          <div class="expCard" id="checklist">
+            <h2>Checklist de incorporación</h2>
+            <div id="expChecklist"></div>
+          </div>
+
+        </aside>
+
+
+        <section class="expCenter">
+
+          <div class="expKpiGrid">
+            <div class="expKpiCard">
+              <span>Productividad media</span>
+              <strong id="kpiProductividad">0%</strong>
+            </div>
+
+            <div class="expKpiCard">
+              <span>Líneas / hora media</span>
+              <strong id="kpiLineasHora">0</strong>
+              <small>Objetivo 80 l/h</small>
+            </div>
+
+            <div class="expKpiCard danger">
+              <span>Error medio</span>
+              <strong id="kpiError">0%</strong>
+            </div>
+
+            <div class="expKpiCard">
+              <span>Última evaluación</span>
+              <strong id="kpiEvaluacion">--</strong>
+            </div>
+          </div>
+
+
+          <div class="expCard" id="productividad">
+            <div class="expCardHeader">
+              <h2>Evolución de productividad · líneas/hora</h2>
+              <select id="filtroProd" onchange="filtrarProductividad()">
+                <option value="">Todas las fechas</option>
+              </select>
+            </div>
+
+            <div id="chartLineasHora" class="expChart"></div>
+
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Total líneas</th>
+                    <th>Esperadas</th>
+                    <th>% Product.</th>
+                    <th>Tiempo</th>
+                    <th>L/h</th>
+                    <th>Volumen</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaProductividad"></tbody>
+              </table>
+            </div>
+          </div>
+
+
+          <div class="expCard" id="errores">
+            <div class="expCardHeader">
+              <h2>Evolución de errores</h2>
+              <select id="filtroErrores" onchange="filtrarErrores()">
+                <option value="">Todas las fechas</option>
+              </select>
+            </div>
+
+            <div id="chartErrores" class="expChart"></div>
+
+            <div class="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Nivel</th>
+                    <th>Cantidad</th>
+                    <th>Saltado</th>
+                    <th>Producto</th>
+                    <th>Desorden</th>
+                    <th>Etiq.</th>
+                    <th>Maltrat.</th>
+                    <th>No cambio</th>
+                    <th>Total</th>
+                    <th>Error %</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaErrores"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+
+        <aside class="expRight">
+
+          <div class="expCard stickyCard">
+            <h2>Preparación general</h2>
+
+            <div class="expBigPercent" id="sidePreparacion">0%</div>
+            <div class="miniProgress"><div id="sideProgressFill"></div></div>
+
+            <div class="expInfoList">
+              <div><span>Estado</span><strong id="sideEstado">--</strong></div>
+              <div><span>Fase</span><strong id="sideFase">--</strong></div>
+              <div><span>Tutor</span><strong id="sideTutor">--</strong></div>
+              <div><span>Riesgo</span><strong id="sideRiesgo">--</strong></div>
+              <div><span>Última actividad</span><strong id="sideActividad">--</strong></div>
+            </div>
+
+            <button class="primaryButton" onclick="editarDatos()">✏️ Editar datos</button>
+            <button class="btn-secondary" onclick="descargarInforme()">⬇ Descargar informe PDF</button>
+          </div>
+
+        </aside>
+
+      </section>
+
+
+      <section class="expBottomGrid">
+
+        <div class="expCard" id="observaciones">
+          <h2>Observaciones del tutor</h2>
+          <div id="expObservaciones"></div>
+          <button class="btn-secondary">＋ Añadir observación</button>
+        </div>
+
+        <div class="expCard">
+          <h2>Evaluaciones</h2>
+          <div class="tableWrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tutor</th>
+                  <th>Resultado</th>
+                  <th>Comentarios</th>
+                </tr>
+              </thead>
+              <tbody id="tablaEvaluaciones"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="expCard">
+          <h2>Documentación</h2>
+          <div id="expDocumentos"></div>
+        </div>
+
+        <div class="expCard" id="timeline">
+          <h2>Timeline de actividades</h2>
+          <div id="expTimeline"></div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+</div>
+
+
+<script>
+let expedienteData = null;
+
+
+document.addEventListener("DOMContentLoaded", function(){
+  const id = getParam("id");
+
+  if(!id){
+    alert("No se ha recibido ID de trabajador.");
+    return;
+  }
+
+  cargarExpediente(id);
+});
+
+
+function cargarExpediente(id){
+  google.script.run
+    .withSuccessHandler(renderExpediente)
+    .withFailureHandler(function(error){
+      alert("Error cargando expediente: " + error.message);
+    })
+    .getExpediente(id);
+}
+
+
+function renderExpediente(data){
+  expedienteData = data;
+
+  renderCabecera(data);
+  renderChecklist(data.checklist);
+  renderKPIs(data);
+  renderProductividad(data.grafana.productividadTabla || []);
+  renderErrores(data.grafana.erroresTabla || []);
+  renderObservaciones(data.observaciones || []);
+  renderEvaluaciones(data.evaluaciones || []);
+  renderDocumentos(data.documentos || []);
+  renderTimeline(data.timeline || []);
+}
+
+
+function renderCabecera(data){
+  const p = data.persona;
+  const estado = data.estadoGeneral || {};
+
+  setText("expNombre", p.nombre);
+  setText("expId", p.id);
+  setText("expPrograma", p.programa);
+  setText("expDepartamento", p.departamento);
+  setText("expTutor", p.tutor || "Sin tutor");
+  setText("expFecha", formatDate(p.fechaIncorporacion));
+  setText("expHora", p.horaEntrada || "--");
+  setText("expEstado", p.estado || "--");
+  setText("expDias", p.diasSeguimiento || 0);
+  setText("expRiesgo", p.riesgo || "--");
+  setText("expEstadoGeneral", estado.estado || "--");
+
+  setText("expPreparacion", data.checklist.porcentaje + "%");
+  setText("sidePreparacion", data.checklist.porcentaje + "%");
+  setText("expChecks", data.checklist.completados + "/" + data.checklist.total);
+
+  setProgress("expProgressFill", data.checklist.porcentaje);
+  setProgress("sideProgressFill", data.checklist.porcentaje);
+
+  setText("sideEstado", p.estado || "--");
+  setText("sideFase", p.idFase || "--");
+  setText("sideTutor", p.tutor || "Sin tutor");
+  setText("sideRiesgo", p.riesgo || "--");
+  setText("sideActividad", data.grafana.resumen.ultimaFecha || "--");
+
+  document.getElementById("expAvatar").textContent = iniciales(p.nombre);
+}
+
+
+function renderChecklist(checklist){
+  const el = document.getElementById("expChecklist");
+
+  el.innerHTML = checklist.items.map(item => `
+    <label class="expCheckItem">
+      <input
+        type="checkbox"
+        ${item.completado ? "checked" : ""}
+        onchange="actualizarCheck('${item.key}', this.checked)"
+      >
+      <span>${escapeHtml(item.titulo)}</span>
+      <em>${item.completado ? "Completado" : "Pendiente"}</em>
+    </label>
+  `).join("");
+}
+
+
+function actualizarCheck(key, checked){
+  google.script.run
+    .withSuccessHandler(renderExpediente)
+    .withFailureHandler(function(error){
+      alert("Error actualizando check: " + error.message);
+    })
+    .updateExpedienteCheck(expedienteData.persona.id, key, checked);
+}
+
+
+function renderKPIs(data){
+  const k = data.kpis || {};
+
+  setText("kpiProductividad", (k.productividadMedia || 0) + "%");
+  setText("kpiLineasHora", (k.lineasHoraMedia || 0) + " l/h");
+  setText("kpiError", (k.errorMedio || 0) + "%");
+  setText("kpiEvaluacion", k.mediaEvaluaciones || "--");
+}
+
+
+function renderProductividad(rows){
+  cargarFiltro("filtroProd", rows);
+  pintarTablaProductividad(rows);
+  renderLineChart("chartLineasHora", rows, "lineasHora", 80);
+}
+
+
+function filtrarProductividad(){
+  const fecha = document.getElementById("filtroProd").value;
+  const rows = expedienteData.grafana.productividadTabla || [];
+  const filtradas = fecha ? rows.filter(r => String(r.fecha) === fecha) : rows;
+  pintarTablaProductividad(filtradas);
+  renderLineChart("chartLineasHora", filtradas, "lineasHora", 80);
+}
+
+
+function pintarTablaProductividad(rows){
+  const tbody = document.getElementById("tablaProductividad");
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${formatDate(r.fecha)}</td>
+      <td>${num(r.totalLineas)}</td>
+      <td>${num(r.lineasEsperadas)}</td>
+      <td>${r.porcentajeTexto || ""}</td>
+      <td>${num(r.tiempoTotal)}</td>
+      <td><strong>${num(r.lineasHora)}</strong></td>
+      <td>${num(r.volumen)}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="7">Sin datos.</td></tr>`;
+}
+
+
+function renderErrores(rows){
+  cargarFiltro("filtroErrores", rows);
+  pintarTablaErrores(rows);
+  renderLineChart("chartErrores", rows, "errorPctTotal", 0.03, true);
+}
+
+
+function filtrarErrores(){
+  const fecha = document.getElementById("filtroErrores").value;
+  const rows = expedienteData.grafana.erroresTabla || [];
+  const filtradas = fecha ? rows.filter(r => String(r.fecha) === fecha) : rows;
+  pintarTablaErrores(filtradas);
+  renderLineChart("chartErrores", filtradas, "errorPctTotal", 0.03, true);
+}
+
+
+function pintarTablaErrores(rows){
+  const tbody = document.getElementById("tablaErrores");
+
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${formatDate(r.fecha)}</td>
+      <td>${num(r.nivelIncorrecto)}</td>
+      <td>${num(r.cantidadIncorrecta)}</td>
+      <td>${num(r.seHaSaltado)}</td>
+      <td>${num(r.productoEquivocado)}</td>
+      <td>${num(r.desordenado)}</td>
+      <td>${num(r.malEtiquetado)}</td>
+      <td>${num(r.maltratado)}</td>
+      <td>${num(r.noHaceCambio)}</td>
+      <td><strong>${num(r.totalErrores)}</strong></td>
+      <td>${r.errorPctTexto || ""}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="11">Sin datos.</td></tr>`;
+}
+
+
+function renderObservaciones(items){
+  const el = document.getElementById("expObservaciones");
+
+  if(!items.length){
+    el.innerHTML = `<p class="empty">Sin observaciones.</p>`;
+    return;
+  }
+
+  el.innerHTML = items.map(o => `
+    <div class="expNote">
+      <strong>${escapeHtml(o.autor || o.TUTOR || "Tutor")}</strong>
+      <small>${escapeHtml(o.fecha || o.FECHA || "")}</small>
+      <p>${escapeHtml(o.texto || o.OBSERVACION || o.comentario || "")}</p>
+    </div>
+  `).join("");
+}
+
+
+function renderEvaluaciones(items){
+  const tbody = document.getElementById("tablaEvaluaciones");
+
+  tbody.innerHTML = items.map(e => `
+    <tr>
+      <td>${escapeHtml(e.fecha || e.FECHA || "")}</td>
+      <td>${escapeHtml(e.tutor || e.TUTOR || "")}</td>
+      <td><strong>${escapeHtml(e.resultado || e.RESULTADO || "")}</strong></td>
+      <td>${escapeHtml(e.comentarios || e.COMENTARIOS || "")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">Sin evaluaciones.</td></tr>`;
+}
+
+
+function renderDocumentos(items){
+  const el = document.getElementById("expDocumentos");
+
+  el.innerHTML = items.map(d => `
+    <div class="listItem">
+      <div>
+        <strong>${escapeHtml(d.titulo)}</strong>
+        <span>${escapeHtml(d.fecha || "")}</span>
+      </div>
+      <em class="badge ${d.completado ? "success" : "warning"}">
+        ${d.completado ? "Completo" : "Pendiente"}
+      </em>
+    </div>
+  `).join("") || `<p class="empty">Sin documentos.</p>`;
+}
+
+
+function renderTimeline(items){
+  const el = document.getElementById("expTimeline");
+
+  el.innerHTML = items.map(t => `
+    <div class="timelineItem">
+      <strong>${escapeHtml(t.titulo || "")}</strong>
+      <small>${escapeHtml(t.fecha || "")}</small>
+      <p>${escapeHtml(t.descripcion || "")}</p>
+    </div>
+  `).join("") || `<p class="empty">Sin actividad.</p>`;
+}
+
+
+function renderLineChart(containerId, rows, key, objetivo, isPct){
+  const el = document.getElementById(containerId);
+
+  if(!rows || rows.length === 0){
+    el.innerHTML = `<p class="empty">Sin datos para el gráfico.</p>`;
+    return;
+  }
+
+  const values = rows.map(r => Number(r[key] || 0));
+  const max = Math.max.apply(null, values.concat([objetivo || 0, 1]));
+  const width = 700;
+  const height = 230;
+  const pad = 36;
+
+  const points = values.map((v, i) => {
+    const x = pad + (i * ((width - pad * 2) / Math.max(1, values.length - 1)));
+    const y = height - pad - ((v / max) * (height - pad * 2));
+    return x + "," + y;
+  }).join(" ");
+
+  const objetivoY = height - pad - ((objetivo / max) * (height - pad * 2));
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" class="svgChart">
+      <line x1="${pad}" y1="${objetivoY}" x2="${width-pad}" y2="${objetivoY}" class="chartTarget"></line>
+      <polyline points="${points}" class="chartLine"></polyline>
+      ${values.map((v,i)=>{
+        const x = pad + (i * ((width - pad * 2) / Math.max(1, values.length - 1)));
+        const y = height - pad - ((v / max) * (height - pad * 2));
+        return `<circle cx="${x}" cy="${y}" r="4" class="chartDot"></circle>`;
+      }).join("")}
+      <text x="${pad}" y="20" class="chartLabel">Objetivo: ${isPct ? (objetivo*100) + "%" : objetivo}</text>
+    </svg>
+  `;
+}
+
+
+function cargarFiltro(id, rows){
+  const select = document.getElementById(id);
+  const fechas = [...new Set(rows.map(r => r.fecha).filter(Boolean))];
+
+  select.innerHTML =
+    `<option value="">Todas las fechas</option>` +
+    fechas.map(f => `<option value="${f}">${formatDate(f)}</option>`).join("");
+}
+
+
+function getParam(name){
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
+
+
+function volverPersonas(){
+  window.location.href = "?page=Personas";
+}
+
+
+function editarDatos(){
+  alert("Edición de datos pendiente de conectar.");
+}
+
+
+function descargarInforme(){
+  alert("Generación de PDF pendiente de conectar.");
+}
+
+
+function setText(id, value){
+  const el = document.getElementById(id);
+  if(el) el.textContent = value || "--";
+}
+
+
+function setProgress(id, value){
+  const el = document.getElementById(id);
+  if(el) el.style.width = Math.max(0, Math.min(100, Number(value || 0))) + "%";
+}
+
+
+function iniciales(nombre){
+  return String(nombre || "")
+    .split(" ")
+    .filter(Boolean)
+    .map(x => x.charAt(0))
+    .join("")
+    .substring(0,2)
+    .toUpperCase();
+}
+
+
+function formatDate(value){
+  if(!value) return "--";
+  try{
+    return new Date(value).toLocaleDateString("es-ES");
+  }catch(e){
+    return value;
+  }
+}
+
+
+function num(value){
+  const n = Number(value || 0);
+  return Math.round(n * 100) / 100;
+}
+
+
+function escapeHtml(value){
+  return String(value || "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+</script>
+
+</body>
+</html>
+```

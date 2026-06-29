@@ -1,0 +1,494 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SGF ERP - Dashboard</title>
+
+  <?!= include("Styles"); ?>
+</head>
+
+<body>
+<div class="app">
+
+  <?!= include("Sidebar"); ?>
+
+  <main class="content">
+
+    <header class="pageHeader">
+      <div>
+        <h1>Buenos días, Kiko 👋</h1>
+        <p>Centro de control del Departamento de Formación</p>
+      </div>
+
+      <div class="headerActions">
+        <div class="infoBox">
+          <strong id="todayDate">--</strong>
+          <span>Fecha actual</span>
+        </div>
+
+        <div class="infoBox">
+          <strong id="lastUpdate">--</strong>
+          <span>Última actualización</span>
+        </div>
+
+        <button class="primaryButton" onclick="loadDashboard()">
+          🔄 Actualizar datos
+        </button>
+      </div>
+    </header>
+
+
+    <!-- KPIS -->
+    <section class="kpiGrid">
+      <div class="kpiCard">
+        <span>👥 Personas en seguimiento</span>
+        <h2 id="kpiSeguimiento">0</h2>
+      </div>
+
+      <div class="kpiCard">
+        <span>🟢 Nuevas incorporaciones</span>
+        <h2 id="kpiNuevas">0</h2>
+      </div>
+
+      <div class="kpiCard">
+        <span>🟣 Comerciales Mili 3.0</span>
+        <h2 id="kpiMili">0</h2>
+      </div>
+
+      <div class="kpiCard">
+        <span>🎓 Formadores activos</span>
+        <h2 id="kpiFormadores">0</h2>
+      </div>
+
+      <div class="kpiCard danger">
+        <span>🚨 Riesgo alto</span>
+        <h2 id="kpiRiesgo">0</h2>
+      </div>
+
+      <div class="kpiCard">
+        <span>🏁 Finalizan esta semana</span>
+        <h2 id="kpiFinalizan">0</h2>
+      </div>
+    </section>
+
+
+    <!-- FILA 1 -->
+    <section class="dashboardGrid four">
+      <div class="panel">
+        <h2>📅 Entran hoy</h2>
+        <div id="panelHoy" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>📅 Entran mañana</h2>
+        <div id="panelManana" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>🗓 Esta semana</h2>
+        <div id="panelSemana" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>📊 Estado del programa</h2>
+        <div id="panelEstados" class="listPanel"></div>
+      </div>
+    </section>
+
+
+    <!-- FILA 2 -->
+    <section class="dashboardGrid four">
+      <div class="panel">
+        <h2>✅ Checklist pendientes</h2>
+        <div id="panelChecklist" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>📄 Documentación pendiente</h2>
+        <div id="panelDocumentos" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>📝 Evaluaciones pendientes</h2>
+        <div id="panelEvaluaciones" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>💬 Observaciones pendientes</h2>
+        <div id="panelObservaciones" class="listPanel">
+          <p class="empty">Pendiente de conectar ObservacionService.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- FILA 3 -->
+    <section class="dashboardGrid three">
+      <div class="panel wide">
+        <h2>📈 Productividad</h2>
+        <div id="panelProductividad"></div>
+      </div>
+
+      <div class="panel wide">
+        <h2>📉 Evolución de errores</h2>
+        <div id="panelErrores"></div>
+      </div>
+
+      <div class="panel">
+        <h2>⚠ Personas en riesgo</h2>
+        <div id="panelRiesgo" class="listPanel"></div>
+      </div>
+    </section>
+
+
+    <!-- FILA 4 -->
+    <section class="dashboardGrid three">
+      <div class="panel wide">
+        <h2>📌 Actividad reciente</h2>
+        <div id="panelTimeline" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>👨‍🏫 Formadores y carga</h2>
+        <div id="panelFormadores" class="listPanel"></div>
+      </div>
+
+      <div class="panel">
+        <h2>⚡ Acciones rápidas</h2>
+
+        <div class="quickActions">
+          <button onclick="goToPage('Personas')">👤 Nueva persona</button>
+          <button onclick="goToPage('Personas')">💬 Nueva observación</button>
+          <button onclick="goToPage('Personas')">⭐ Registrar evaluación</button>
+          <button onclick="goToPage('Grafana')">⬆ Importar CSV Grafana</button>
+          <button onclick="goToPage('Personas')">📁 Ver expedientes</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  setToday();
+  loadDashboard();
+});
+
+
+function setToday() {
+  const hoy = new Date();
+
+  document.getElementById("todayDate").textContent =
+    hoy.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    });
+
+  document.getElementById("lastUpdate").textContent =
+    hoy.toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+}
+
+
+function loadDashboard() {
+  showLoading();
+
+  google.script.run
+    .withSuccessHandler(renderDashboard)
+    .withFailureHandler(function (error) {
+      console.error(error);
+      alert("Error cargando Dashboard: " + error.message);
+    })
+    .getDashboard();
+}
+
+
+function renderDashboard(data) {
+  data = data || {};
+
+  renderKPIs(data);
+  renderEntradas(data.entradas || {});
+  renderEstados(data.resumen || {});
+  renderChecklist(data.checklistPendiente || []);
+  renderDocumentos(data.documentosPendientes || []);
+  renderEvaluaciones(data.evaluacionesPendientes || []);
+  renderProductividad(data.productividad || {});
+  renderErrores(data.productividad || {});
+  renderRiesgo(data.alertas || []);
+  renderTimeline(data.timeline || []);
+  renderFormadores(data.formadores || []);
+
+  setToday();
+}
+
+
+function renderKPIs(data) {
+  const kpis = data.kpis || data.resumen || {};
+
+  setText("kpiSeguimiento", kpis.enSeguimiento || 0);
+  setText("kpiNuevas", kpis.nuevas || kpis.onboarding || 0);
+  setText("kpiMili", kpis.mili || 0);
+  setText("kpiFormadores", kpis.formadores || 0);
+  setText("kpiRiesgo", kpis.riesgoAlto || kpis.riesgo || 0);
+  setText("kpiFinalizan", data.entradas?.finalizanEstaSemana?.length || 0);
+}
+
+
+function renderEntradas(entradas) {
+  renderPersonaList("panelHoy", entradas.hoy || [], "No entra nadie hoy.");
+  renderPersonaList("panelManana", entradas.manana || [], "No entra nadie mañana.");
+  renderPersonaList("panelSemana", entradas.estaSemana || [], "No hay incorporaciones esta semana.");
+}
+
+
+function renderEstados(resumen) {
+  const html = `
+    <div class="stateRow"><span>Pendientes iniciar</span><strong>${resumen.hoy || 0}</strong></div>
+    <div class="stateRow"><span>En onboarding</span><strong>${resumen.onboarding || resumen.nuevas || 0}</strong></div>
+    <div class="stateRow"><span>En seguimiento</span><strong>${resumen.enSeguimiento || 0}</strong></div>
+    <div class="stateRow"><span>Finalizados</span><strong>${resumen.finalizados || 0}</strong></div>
+    <div class="stateRow"><span>Riesgo alto</span><strong>${resumen.riesgoAlto || resumen.riesgo || 0}</strong></div>
+  `;
+
+  document.getElementById("panelEstados").innerHTML = html;
+}
+
+
+function renderChecklist(items) {
+  renderSimpleList(
+    "panelChecklist",
+    items,
+    "No hay checklist pendientes.",
+    item => `
+      <div class="listItem">
+        <div>
+          <strong>${escapeHtml(item.trabajador || item.nombre || "Sin nombre")}</strong>
+          <span>${escapeHtml(item.siguienteAccion || item.nombre || "Checklist pendiente")}</span>
+        </div>
+        <em>${item.progreso || 0}%</em>
+      </div>
+    `
+  );
+}
+
+
+function renderDocumentos(items) {
+  renderSimpleList(
+    "panelDocumentos",
+    items,
+    "No hay documentos pendientes.",
+    item => `
+      <div class="listItem">
+        <div>
+          <strong>${escapeHtml(item.trabajador || item.nombre || "Sin nombre")}</strong>
+          <span>${escapeHtml(item.documento || "Documento pendiente")}</span>
+        </div>
+        <em>${escapeHtml(item.estado || "Pendiente")}</em>
+      </div>
+    `
+  );
+}
+
+
+function renderEvaluaciones(items) {
+  renderSimpleList(
+    "panelEvaluaciones",
+    items,
+    "No hay evaluaciones pendientes.",
+    item => `
+      <div class="listItem">
+        <div>
+          <strong>${escapeHtml(item.NOMBRE_COMPLETO || item.trabajador || "Evaluación")}</strong>
+          <span>${escapeHtml(item.TIPO_EVALUACION || item.tipo || "Pendiente")}</span>
+        </div>
+      </div>
+    `
+  );
+}
+
+
+function renderProductividad(productividad) {
+  const media = productividad.media || 0;
+  const personas = productividad.personas || 0;
+
+  document.getElementById("panelProductividad").innerHTML = `
+    <div class="metricBig">${media}%</div>
+    <p class="muted">Media del departamento</p>
+    <p>${personas} personas con datos de productividad</p>
+    <div class="fakeChart">
+      <span style="height:45%"></span>
+      <span style="height:60%"></span>
+      <span style="height:52%"></span>
+      <span style="height:70%"></span>
+      <span style="height:64%"></span>
+      <span style="height:75%"></span>
+      <span style="height:72%"></span>
+    </div>
+  `;
+}
+
+
+function renderErrores(productividad) {
+  const error = productividad.errorMedio || 0;
+
+  document.getElementById("panelErrores").innerHTML = `
+    <div class="metricBig dangerText">${error}%</div>
+    <p class="muted">Error medio</p>
+    <div class="fakeChart dangerChart">
+      <span style="height:30%"></span>
+      <span style="height:25%"></span>
+      <span style="height:38%"></span>
+      <span style="height:50%"></span>
+      <span style="height:36%"></span>
+      <span style="height:42%"></span>
+      <span style="height:28%"></span>
+    </div>
+  `;
+}
+
+
+function renderRiesgo(alertas) {
+  const riesgo = alertas.filter(a => a.nivel === "alto").slice(0, 6);
+
+  renderSimpleList(
+    "panelRiesgo",
+    riesgo,
+    "No hay personas en riesgo.",
+    item => `
+      <div class="listItem">
+        <div>
+          <strong>${escapeHtml(item.trabajador || "Sin nombre")}</strong>
+          <span>${escapeHtml(item.mensaje || "Riesgo")}</span>
+        </div>
+        <em class="badge dangerBadge">${escapeHtml(item.nivel || "alto")}</em>
+      </div>
+    `
+  );
+}
+
+
+function renderTimeline(items) {
+  renderSimpleList(
+    "panelTimeline",
+    items,
+    "Sin actividad reciente.",
+    item => `
+      <div class="listItem">
+        <div>
+          <strong>${escapeHtml(item.FECHA || item.fecha || "")}</strong>
+          <span>${escapeHtml(item.DESCRIPCION || item.descripcion || item.mensaje || "Actividad")}</span>
+        </div>
+      </div>
+    `
+  );
+}
+
+
+function renderFormadores(items) {
+  renderSimpleList(
+    "panelFormadores",
+    items,
+    "No hay formadores asignados.",
+    item => `
+      <div class="listItem">
+        <div>
+          <strong>${escapeHtml(item.nombre || "Sin tutor")}</strong>
+          <span>${item.personas || 0} personas asignadas</span>
+        </div>
+      </div>
+    `
+  );
+}
+
+
+function renderPersonaList(containerId, personas, emptyText) {
+  renderSimpleList(
+    containerId,
+    personas,
+    emptyText,
+    persona => `
+      <div class="listItem personItem">
+        <div>
+          <strong>${escapeHtml(persona.nombre || "Sin nombre")}</strong>
+          <span>${escapeHtml(persona.departamento || "")}</span>
+        </div>
+        <em>${escapeHtml(persona.programa || "")}</em>
+      </div>
+    `
+  );
+}
+
+
+function renderSimpleList(containerId, items, emptyText, templateFn) {
+  const el = document.getElementById(containerId);
+
+  if (!items || !items.length) {
+    el.innerHTML = `<p class="empty">${emptyText}</p>`;
+    return;
+  }
+
+  el.innerHTML = items.slice(0, 8).map(templateFn).join("");
+}
+
+
+function showLoading() {
+  const panels = [
+    "panelHoy",
+    "panelManana",
+    "panelSemana",
+    "panelEstados",
+    "panelChecklist",
+    "panelDocumentos",
+    "panelEvaluaciones",
+    "panelProductividad",
+    "panelErrores",
+    "panelRiesgo",
+    "panelTimeline",
+    "panelFormadores"
+  ];
+
+  panels.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<p class="empty">Cargando...</p>`;
+  });
+}
+
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+
+function goToPage(page) {
+  google.script.run
+    .withSuccessHandler(function (html) {
+      document.open();
+      document.write(html);
+      document.close();
+    })
+    .loadPage(page);
+}
+
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+</script>
+
+</body>
+</html>
+```

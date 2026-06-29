@@ -1,0 +1,446 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SGF ERP · Personas</title>
+  <?!= include("Styles"); ?>
+</head>
+
+<body>
+<div class="app">
+
+  <?!= include("Sidebar"); ?>
+
+  <main class="content personasPage">
+
+    <header class="personasHeader">
+      <div>
+        <h1>Personas</h1>
+        <p>Seguimiento de trabajadores en formación</p>
+      </div>
+
+      <a class="personasPrimaryBtn" href="?page=empleado">
+        👥 Nueva incorporación
+      </a>
+    </header>
+
+
+    <section class="personasKpiGrid">
+      <div class="personasKpiCard">
+        <div class="kpiBubble blue">👥</div>
+        <div>
+          <span>Total personas</span>
+          <strong><?= resumen.total || 0 ?></strong>
+          <small>En seguimiento</small>
+        </div>
+      </div>
+
+      <div class="personasKpiCard">
+        <div class="kpiBubble green">🧍</div>
+        <div>
+          <span>Nuevas incorporaciones</span>
+          <strong><?= resumen.nuevas || 0 ?></strong>
+          <small><?= resumen.nuevasPct || 0 ?>% del total</small>
+        </div>
+      </div>
+
+      <div class="personasKpiCard">
+        <div class="kpiBubble purple">🚀</div>
+        <div>
+          <span>Mili 3.0</span>
+          <strong><?= resumen.mili || 0 ?></strong>
+          <small><?= resumen.miliPct || 0 ?>% del total</small>
+        </div>
+      </div>
+
+      <div class="personasKpiCard">
+        <div class="kpiBubble orange">🎓</div>
+        <div>
+          <span>Formadores activos</span>
+          <strong><?= resumen.formadores || 0 ?></strong>
+          <small>Con personas asignadas</small>
+        </div>
+      </div>
+
+      <div class="personasKpiCard">
+        <div class="kpiBubble red">⚠️</div>
+        <div>
+          <span>Riesgo alto</span>
+          <strong><?= resumen.riesgo || 0 ?></strong>
+          <small>Atención necesaria</small>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="personasFilters">
+      <div class="searchBox">
+        <span>🔎</span>
+        <input id="buscarPersona" type="text" placeholder="Buscar por nombre, ID, tutor, departamento..." onkeyup="filtrarPersonas()">
+        <button type="button" onclick="limpiarBusqueda()">×</button>
+      </div>
+
+      <div class="filterGroup">
+        <label>Programa</label>
+        <select id="filtroPrograma" onchange="filtrarPersonas()">
+          <option value="">Todos</option>
+          <option value="Nueva incorporación">Nueva incorporación</option>
+          <option value="Mili 3.0">Mili 3.0</option>
+        </select>
+      </div>
+
+      <div class="filterGroup">
+        <label>Tutor</label>
+        <select id="filtroTutor" onchange="filtrarPersonas()">
+          <option value="">Todos</option>
+          <? tutores.forEach(function(t){ ?>
+            <option value="<?= t ?>"><?= t ?></option>
+          <? }); ?>
+        </select>
+      </div>
+
+      <div class="filterGroup">
+        <label>Estado</label>
+        <select id="filtroEstado" onchange="filtrarPersonas()">
+          <option value="">Todos</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="En curso">En curso</option>
+          <option value="Finalizado">Finalizado</option>
+          <option value="Baja">Baja</option>
+        </select>
+      </div>
+
+      <div class="filterGroup">
+        <label>Riesgo</label>
+        <select id="filtroRiesgo" onchange="filtrarPersonas()">
+          <option value="">Todos</option>
+          <option value="Bajo">Bajo</option>
+          <option value="Medio">Medio</option>
+          <option value="Alto">Alto</option>
+        </select>
+      </div>
+
+      <button class="personasSecondaryBtn" onclick="limpiarFiltros()">⟳ Limpiar filtros</button>
+    </section>
+
+
+    <section class="personasToolbar">
+      <div>
+        Ordenar por:
+        <button onclick="ordenarPersonas('dias')">Día en seguimiento ↕</button>
+        <button onclick="ordenarPersonas('nombre')">Nombre ↕</button>
+        <button onclick="ordenarPersonas('riesgo')">Riesgo ↕</button>
+      </div>
+
+      <div>
+        <span id="contadorResultados"><?= personas.length ?></span> resultados
+      </div>
+    </section>
+
+
+    <section class="personasList" id="personasList">
+
+      <? personas.forEach(function(p){
+
+        var id = p.id || p.ID_TRABAJADOR || p["ID Trabajador"] || "";
+        var nombre = p.nombre || p.NOMBRE_COMPLETO || p.NOMBRE || "Sin nombre";
+        var programa = p.programa || p.TIPO_PROGRAMA || "";
+        var tutor = p.tutor || p.TUTOR || p.TUTOR_ASIGNADO || "Sin tutor";
+        var departamento = p.departamento || p.DEPARTAMENTO_ORIGEN || p.DEPARTAMENTO || "-";
+        var estado = p.estado || p.ESTADO || "En curso";
+
+        var riesgo = "";
+        if (typeof PersonaService !== "undefined" && PersonaService.getRiesgo) {
+          riesgo = PersonaService.getRiesgo(p);
+        } else {
+          riesgo = p.riesgo || p.RIESGO || "Bajo";
+        }
+
+        var dias = 0;
+        if (typeof PersonaService !== "undefined" && PersonaService.diasSeguimiento) {
+          dias = PersonaService.diasSeguimiento(p);
+        } else {
+          dias = p.diasSeguimiento || p.DIAS_EN_SEGUIMIENTO || 0;
+        }
+
+        var totalDias = programa == "Mili 3.0" ? 10 : 30;
+        var avanceDias = Math.min(100, Math.max(0, Math.round((dias / totalDias) * 100)));
+
+        var checklist = 0;
+        if (typeof PersonaService !== "undefined" && PersonaService.getChecklistProgress) {
+          checklist = PersonaService.getChecklistProgress(p);
+        } else {
+          checklist = p.porcentajePreparacion || p.PORCENTAJE_PREPARACION || 0;
+        }
+
+        checklist = Math.min(100, Math.max(0, Number(checklist || 0)));
+
+        var checksTotal = 12;
+        var checksDone = Math.round((checklist / 100) * checksTotal);
+
+        var productividad = "";
+        if (typeof PersonaService !== "undefined" && PersonaService.getProductividadMedia) {
+          productividad = PersonaService.getProductividadMedia(p);
+        } else {
+          productividad = p.productividad || p.MEDIA_PRODUCTIVIDAD || p.PRODUCTIVIDAD_MEDIA || "";
+        }
+
+        var error = "";
+        if (typeof PersonaService !== "undefined" && PersonaService.getErrorMedio) {
+          error = PersonaService.getErrorMedio(p);
+        } else {
+          error = p.error || p.ERROR_PCT_TOTAL || p.ERROR_MEDIO || "";
+        }
+
+        var proxima = "Revisar expediente";
+        if (typeof PersonaService !== "undefined" && PersonaService.getNextAction) {
+          proxima = PersonaService.getNextAction(p);
+        }
+
+        var iniciales = nombre
+          .split(" ")
+          .filter(function(x){ return x; })
+          .map(function(x){ return x.charAt(0); })
+          .join("")
+          .substring(0,2)
+          .toUpperCase();
+
+        var riesgoClass = String(riesgo || "").toLowerCase();
+
+        if (riesgoClass.indexOf("alto") >= 0) {
+          riesgoClass = "alto";
+        } else if (riesgoClass.indexOf("medio") >= 0) {
+          riesgoClass = "medio";
+        } else {
+          riesgoClass = "bajo";
+        }
+
+        var programaClass = programa == "Mili 3.0" ? "mili" : "nueva";
+
+      ?>
+
+      <article
+        class="personaRow"
+        data-nombre="<?= nombre ?>"
+        data-id="<?= id ?>"
+        data-programa="<?= programa ?>"
+        data-tutor="<?= tutor ?>"
+        data-estado="<?= estado ?>"
+        data-riesgo="<?= riesgoClass ?>"
+        data-dias="<?= dias ?>">
+
+        <div class="personaIdentity">
+          <div class="avatar">
+            <?= iniciales ?>
+            <span class="statusDot <?= riesgoClass ?>"></span>
+          </div>
+
+          <div>
+            <h3><?= nombre ?></h3>
+            <p>ID: <?= id ?></p>
+            <span class="programBadge <?= programaClass ?>"><?= programa ?></span>
+          </div>
+        </div>
+
+
+        <div class="personaMeta">
+          <small>Tutor</small>
+          <strong>👤 <?= tutor ?></strong>
+          <small>Departamento</small>
+          <strong>🏢 <?= departamento ?></strong>
+        </div>
+
+
+        <div class="personaProgress">
+          <small>Día en seguimiento</small>
+          <strong><?= dias ?> / <?= totalDias ?></strong>
+          <div class="miniProgress">
+            <div class="progressFill" data-width="<?= avanceDias ?>"></div>
+          </div>
+        </div>
+
+
+        <div class="personaProgress">
+          <small>Checklist</small>
+          <strong><?= checksDone ?> / <?= checksTotal ?></strong>
+          <div class="miniProgress checklist">
+            <div class="progressFill" data-width="<?= checklist ?>"></div>
+          </div>
+        </div>
+
+
+        <div class="personaMetric">
+          <small>Productividad media</small>
+          <? if(productividad && Number(productividad) > 0){ ?>
+            <strong><?= productividad ?>%</strong>
+            <div class="sparkline positive"></div>
+          <? } else { ?>
+            <strong>—</strong>
+            <div class="emptyLine"></div>
+          <? } ?>
+        </div>
+
+
+        <div class="personaMetric">
+          <small>Error medio</small>
+          <? if(error && Number(error) > 0){ ?>
+            <strong><?= error ?>%</strong>
+            <div class="sparkline negative"></div>
+          <? } else { ?>
+            <strong>—</strong>
+            <div class="emptyLine"></div>
+          <? } ?>
+        </div>
+
+
+        <div class="riskBlock <?= riesgoClass ?>">
+          <span class="shield">🛡</span>
+          <strong><?= riesgo ?></strong>
+        </div>
+
+
+        <div class="nextAction">
+          <small>Próxima acción</small>
+          <strong><?= proxima ?></strong>
+        </div>
+
+
+        <div class="rowActions">
+          <a href="?page=empleado&id=<?= id ?>" class="openBtn">
+            Abrir expediente →
+          </a>
+        </div>
+
+      </article>
+
+      <? }); ?>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  aplicarBarrasProgreso();
+});
+
+
+function aplicarBarrasProgreso(){
+  document.querySelectorAll(".progressFill").forEach(function(el){
+    const width = Number(el.dataset.width || 0);
+    const safeWidth = Math.max(0, Math.min(100, width));
+    el.style.width = safeWidth + "%";
+  });
+}
+
+
+function limpiarTexto(valor){
+  return String(valor || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+
+function filtrarPersonas(){
+  const texto = limpiarTexto(document.getElementById("buscarPersona").value);
+  const programa = limpiarTexto(document.getElementById("filtroPrograma").value);
+  const tutor = limpiarTexto(document.getElementById("filtroTutor").value);
+  const estado = limpiarTexto(document.getElementById("filtroEstado").value);
+  const riesgo = limpiarTexto(document.getElementById("filtroRiesgo").value);
+
+  let visibles = 0;
+
+  document.querySelectorAll(".personaRow").forEach(function(row){
+    const contenido = limpiarTexto(row.innerText);
+    const rowPrograma = limpiarTexto(row.dataset.programa);
+    const rowTutor = limpiarTexto(row.dataset.tutor);
+    const rowEstado = limpiarTexto(row.dataset.estado);
+    const rowRiesgo = limpiarTexto(row.dataset.riesgo);
+
+    const visible =
+      (!texto || contenido.includes(texto)) &&
+      (!programa || rowPrograma === programa) &&
+      (!tutor || rowTutor === tutor) &&
+      (!estado || rowEstado === estado) &&
+      (!riesgo || rowRiesgo === riesgo);
+
+    row.style.display = visible ? "grid" : "none";
+
+    if(visible){
+      visibles++;
+    }
+  });
+
+  document.getElementById("contadorResultados").innerText = visibles;
+}
+
+
+function limpiarBusqueda(){
+  document.getElementById("buscarPersona").value = "";
+  filtrarPersonas();
+}
+
+
+function limpiarFiltros(){
+  document.getElementById("buscarPersona").value = "";
+  document.getElementById("filtroPrograma").value = "";
+  document.getElementById("filtroTutor").value = "";
+  document.getElementById("filtroEstado").value = "";
+  document.getElementById("filtroRiesgo").value = "";
+  filtrarPersonas();
+}
+
+
+let ordenAsc = true;
+
+
+function ordenarPersonas(tipo){
+  const lista = document.getElementById("personasList");
+  const filas = Array.from(lista.querySelectorAll(".personaRow"));
+
+  filas.sort(function(a,b){
+    let va;
+    let vb;
+
+    if(tipo === "dias"){
+      va = Number(a.dataset.dias || 0);
+      vb = Number(b.dataset.dias || 0);
+    } else if(tipo === "riesgo"){
+      const mapa = {
+        alto:3,
+        medio:2,
+        bajo:1
+      };
+
+      va = mapa[limpiarTexto(a.dataset.riesgo)] || 0;
+      vb = mapa[limpiarTexto(b.dataset.riesgo)] || 0;
+    } else {
+      va = limpiarTexto(a.dataset.nombre);
+      vb = limpiarTexto(b.dataset.nombre);
+    }
+
+    if(va < vb) return ordenAsc ? -1 : 1;
+    if(va > vb) return ordenAsc ? 1 : -1;
+    return 0;
+  });
+
+  ordenAsc = !ordenAsc;
+
+  filas.forEach(function(fila){
+    lista.appendChild(fila);
+  });
+
+  aplicarBarrasProgreso();
+}
+</script>
+
+</body>
+</html>
+```
