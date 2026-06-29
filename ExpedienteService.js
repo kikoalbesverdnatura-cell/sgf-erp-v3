@@ -1,4 +1,4 @@
-```javascript
+
 /*********************************************************************
  * SGF ERP v3
  * ExpedienteService.js
@@ -833,4 +833,4 @@ function updateExpedienteTutor(id, tutor) {
 function updateExpedientePdaFirma(id, firmado) {
   return ExpedienteService.updatePdaFirma(id, firmado);
 }
-```
+
