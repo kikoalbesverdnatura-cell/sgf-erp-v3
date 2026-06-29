@@ -1,4 +1,4 @@
-```javascript
+
 /*********************************************************************
  * SGF ERP v3
  * DashboardService.js
@@ -455,4 +455,4 @@ const DashboardService = {
 function getDashboard() {
   return DashboardService.getDashboard();
 }
-```
+
