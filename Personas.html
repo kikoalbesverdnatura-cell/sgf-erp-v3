@@ -1,446 +1,977 @@
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <base target="_top">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SGF ERP · Personas</title>
+  <title>SGF ERP · Centro de Seguimiento</title>
   <?!= include("Styles"); ?>
+
+  <style>
+    .centroPage {
+      padding: 28px;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(12, 142, 255, 0.12), transparent 28%),
+        radial-gradient(circle at 85% 0%, rgba(255, 140, 0, 0.12), transparent 22%),
+        #f4f7fb;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Manrope", sans-serif;
+    }
+
+    .centroHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .centroHeader h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.1;
+      letter-spacing: 0.2px;
+    }
+
+    .centroHeader p {
+      margin: 6px 0 0;
+      color: #526173;
+      font-size: 14px;
+    }
+
+    .headerMeta {
+      text-align: right;
+      color: #44576a;
+      font-size: 12px;
+      background: #fff;
+      border: 1px solid #dfe7f0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 6px 18px rgba(18, 45, 74, 0.06);
+    }
+
+    .summaryGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .summaryCard {
+      background: #fff;
+      border: 1px solid #d8e3ef;
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 8px 22px rgba(14, 42, 71, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .summaryCard span {
+      font-size: 12px;
+      color: #5f7082;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+    }
+
+    .summaryCard strong {
+      font-size: 26px;
+      color: #10253d;
+      line-height: 1;
+    }
+
+    .summaryCard.warn strong { color: #cb5a00; }
+    .summaryCard.danger strong { color: #b92d2d; }
+
+    .toolbar {
+      background: #fff;
+      border: 1px solid #d8e3ef;
+      border-radius: 14px;
+      box-shadow: 0 10px 22px rgba(14, 42, 71, 0.05);
+      padding: 14px;
+      margin-bottom: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .rowFilters {
+      display: grid;
+      grid-template-columns: 1.6fr repeat(6, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .rowFiltersExtended {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field label {
+      font-size: 11px;
+      color: #607286;
+      text-transform: uppercase;
+      letter-spacing: .35px;
+    }
+
+    .field input,
+    .field select,
+    .field button {
+      border: 1px solid #ccd9e8;
+      border-radius: 10px;
+      background: #fdfefe;
+      padding: 9px 10px;
+      font-size: 13px;
+      color: #193149;
+      outline: none;
+      transition: border-color .15s ease;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: #1886e4;
+    }
+
+    .actionsBar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .leftActions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: 1px solid #c5d5e8;
+      background: #fff;
+      color: #17385a;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .btn:hover { background: #f3f8fe; }
+
+    .btnPrimary {
+      background: #0b7be0;
+      border-color: #0b7be0;
+      color: #fff;
+    }
+
+    .resultInfo {
+      font-size: 13px;
+      color: #586c81;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .personaCard {
+      background: #fff;
+      border: 1px solid #d8e3ef;
+      border-radius: 16px;
+      box-shadow: 0 12px 24px rgba(14, 42, 71, 0.06);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      border-left: 5px solid #93a5b9;
+    }
+
+    .personaHead {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .personaName {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.1;
+      color: #112944;
+    }
+
+    .personaMeta {
+      margin: 3px 0 0;
+      color: #5f7082;
+      font-size: 12px;
+    }
+
+    .badgeRow,
+    .alertRow,
+    .quickRow {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .badge,
+    .alertChip,
+    .quickBtn {
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      border: 1px solid transparent;
+      line-height: 1.2;
+    }
+
+    .badge {
+      background: #eef4fc;
+      color: #23476f;
+      border-color: #d3e2f3;
+    }
+
+    .alertChip {
+      background: #fff0f0;
+      color: #983636;
+      border-color: #f1c7c7;
+    }
+
+    .alertChip.warn {
+      background: #fff7ea;
+      color: #a76412;
+      border-color: #f1dfb9;
+    }
+
+    .quickBtn {
+      background: #f5f9ff;
+      color: #1f4e7e;
+      border-color: #cfe0f3;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .quickBtn:hover { background: #eaf2fc; }
+
+    .metricsGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .metric {
+      border: 1px solid #e3ebf5;
+      border-radius: 12px;
+      padding: 8px;
+      background: #fbfdff;
+    }
+
+    .metric small {
+      display: block;
+      font-size: 11px;
+      color: #607387;
+      margin-bottom: 2px;
+    }
+
+    .metric strong {
+      font-size: 15px;
+      color: #17385a;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: #dfe8f2;
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #1994ff, #2bb7bf);
+      width: 0;
+    }
+
+    .riskPill {
+      border-radius: 999px;
+      color: #fff;
+      padding: 4px 8px;
+      font-size: 11px;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      font-weight: 700;
+      display: inline-block;
+    }
+
+    .lastActivity {
+      border-top: 1px dashed #dbe6f2;
+      padding-top: 8px;
+      color: #4f647a;
+      font-size: 12px;
+      display: grid;
+      gap: 2px;
+    }
+
+    .lastActivity strong { color: #1a3858; }
+
+    .empty {
+      background: #fff;
+      border: 1px dashed #c9d9ea;
+      border-radius: 14px;
+      padding: 18px;
+      text-align: center;
+      color: #5f7082;
+      font-size: 14px;
+    }
+
+    .loading {
+      font-size: 14px;
+      color: #5a6f86;
+      padding: 16px;
+    }
+
+    @media (max-width: 1320px) {
+      .rowFilters {
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+      }
+
+      .rowFilters .field:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .rowFiltersExtended {
+        grid-template-columns: repeat(3, minmax(120px, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .centroPage { padding: 16px; }
+
+      .summaryGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .rowFilters,
+      .rowFiltersExtended {
+        grid-template-columns: 1fr;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      .metricsGrid {
+        grid-template-columns: 1fr;
+      }
+
+      .headerMeta { text-align: left; }
+    }
+  </style>
 </head>
 
 <body>
 <div class="app">
-
   <?!= include("Sidebar"); ?>
 
-  <main class="content personasPage">
+  <main class="content centroPage">
 
-    <header class="personasHeader">
+    <header class="centroHeader">
       <div>
-        <h1>Personas</h1>
-        <p>Seguimiento de trabajadores en formación</p>
+        <h1>Centro de Seguimiento</h1>
+        <p>Pantalla operativa diaria para Formación · SGF ERP v3</p>
       </div>
-
-      <a class="personasPrimaryBtn" href="?page=empleado">
-        👥 Nueva incorporación
-      </a>
+      <div class="headerMeta">
+        <div>Resultados: <strong id="resultCount">0</strong></div>
+        <div>Actualizado: <span id="updatedAt">-</span></div>
+      </div>
     </header>
 
+    <section class="summaryGrid" id="summaryGrid"></section>
 
-    <section class="personasKpiGrid">
-      <div class="personasKpiCard">
-        <div class="kpiBubble blue">👥</div>
-        <div>
-          <span>Total personas</span>
-          <strong><?= resumen.total || 0 ?></strong>
-          <small>En seguimiento</small>
+    <section class="toolbar">
+      <div class="rowFilters">
+        <div class="field">
+          <label>Búsqueda libre</label>
+          <input id="filterSearch" type="text" placeholder="Nombre, ID, tutor, programa, departamento" oninput="applyFiltersAndRender()">
+        </div>
+
+        <div class="field">
+          <label>Tutor</label>
+          <select id="filterTutor" onchange="applyFiltersAndRender()"></select>
+        </div>
+
+        <div class="field">
+          <label>Programa</label>
+          <select id="filterPrograma" onchange="applyFiltersAndRender()"></select>
+        </div>
+
+        <div class="field">
+          <label>Departamento</label>
+          <select id="filterDepartamento" onchange="applyFiltersAndRender()"></select>
+        </div>
+
+        <div class="field">
+          <label>Estado</label>
+          <select id="filterEstado" onchange="applyFiltersAndRender()"></select>
+        </div>
+
+        <div class="field">
+          <label>Fase</label>
+          <select id="filterFase" onchange="applyFiltersAndRender()"></select>
+        </div>
+
+        <div class="field">
+          <label>Riesgo</label>
+          <select id="filterRiesgo" onchange="applyFiltersAndRender()"></select>
         </div>
       </div>
 
-      <div class="personasKpiCard">
-        <div class="kpiBubble green">🧍</div>
-        <div>
-          <span>Nuevas incorporaciones</span>
-          <strong><?= resumen.nuevas || 0 ?></strong>
-          <small><?= resumen.nuevasPct || 0 ?>% del total</small>
+      <div class="rowFiltersExtended">
+        <div class="field">
+          <label>Checklist</label>
+          <select id="filterChecklist" onchange="applyFiltersAndRender()">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="completo">Completo</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Documentación</label>
+          <select id="filterDocumentacion" onchange="applyFiltersAndRender()">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="completo">Completa</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Evaluación</label>
+          <select id="filterEvaluacion" onchange="applyFiltersAndRender()">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="completo">Al día</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Ordenar por</label>
+          <select id="sortKey" onchange="applyFiltersAndRender()">
+            <option value="nombre">Nombre</option>
+            <option value="tutor">Tutor</option>
+            <option value="dias">Días</option>
+            <option value="riesgo">Riesgo</option>
+            <option value="productividad">Productividad</option>
+            <option value="errores">Errores</option>
+            <option value="checklist">Checklist</option>
+            <option value="documentacion">Documentación</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Dirección</label>
+          <select id="sortDir" onchange="applyFiltersAndRender()">
+            <option value="desc">Descendente</option>
+            <option value="asc">Ascendente</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Controles</label>
+          <button type="button" class="btn" onclick="resetFilters()">Limpiar filtros</button>
         </div>
       </div>
 
-      <div class="personasKpiCard">
-        <div class="kpiBubble purple">🚀</div>
-        <div>
-          <span>Mili 3.0</span>
-          <strong><?= resumen.mili || 0 ?></strong>
-          <small><?= resumen.miliPct || 0 ?>% del total</small>
+      <div class="actionsBar">
+        <div class="leftActions">
+          <button class="btn btnPrimary" onclick="reloadData()">Actualizar</button>
+          <span class="resultInfo" id="resultsInfo">Sin datos</span>
         </div>
-      </div>
-
-      <div class="personasKpiCard">
-        <div class="kpiBubble orange">🎓</div>
-        <div>
-          <span>Formadores activos</span>
-          <strong><?= resumen.formadores || 0 ?></strong>
-          <small>Con personas asignadas</small>
-        </div>
-      </div>
-
-      <div class="personasKpiCard">
-        <div class="kpiBubble red">⚠️</div>
-        <div>
-          <span>Riesgo alto</span>
-          <strong><?= resumen.riesgo || 0 ?></strong>
-          <small>Atención necesaria</small>
-        </div>
-      </div>
-    </section>
-
-
-    <section class="personasFilters">
-      <div class="searchBox">
-        <span>🔎</span>
-        <input id="buscarPersona" type="text" placeholder="Buscar por nombre, ID, tutor, departamento..." onkeyup="filtrarPersonas()">
-        <button type="button" onclick="limpiarBusqueda()">×</button>
-      </div>
-
-      <div class="filterGroup">
-        <label>Programa</label>
-        <select id="filtroPrograma" onchange="filtrarPersonas()">
-          <option value="">Todos</option>
-          <option value="Nueva incorporación">Nueva incorporación</option>
-          <option value="Mili 3.0">Mili 3.0</option>
-        </select>
-      </div>
-
-      <div class="filterGroup">
-        <label>Tutor</label>
-        <select id="filtroTutor" onchange="filtrarPersonas()">
-          <option value="">Todos</option>
-          <? tutores.forEach(function(t){ ?>
-            <option value="<?= t ?>"><?= t ?></option>
-          <? }); ?>
-        </select>
-      </div>
-
-      <div class="filterGroup">
-        <label>Estado</label>
-        <select id="filtroEstado" onchange="filtrarPersonas()">
-          <option value="">Todos</option>
-          <option value="Pendiente">Pendiente</option>
-          <option value="En curso">En curso</option>
-          <option value="Finalizado">Finalizado</option>
-          <option value="Baja">Baja</option>
-        </select>
-      </div>
-
-      <div class="filterGroup">
-        <label>Riesgo</label>
-        <select id="filtroRiesgo" onchange="filtrarPersonas()">
-          <option value="">Todos</option>
-          <option value="Bajo">Bajo</option>
-          <option value="Medio">Medio</option>
-          <option value="Alto">Alto</option>
-        </select>
-      </div>
-
-      <button class="personasSecondaryBtn" onclick="limpiarFiltros()">⟳ Limpiar filtros</button>
-    </section>
-
-
-    <section class="personasToolbar">
-      <div>
-        Ordenar por:
-        <button onclick="ordenarPersonas('dias')">Día en seguimiento ↕</button>
-        <button onclick="ordenarPersonas('nombre')">Nombre ↕</button>
-        <button onclick="ordenarPersonas('riesgo')">Riesgo ↕</button>
-      </div>
-
-      <div>
-        <span id="contadorResultados"><?= personas.length ?></span> resultados
       </div>
     </section>
 
-
-    <section class="personasList" id="personasList">
-
-      <? personas.forEach(function(p){
-
-        var id = p.id || p.ID_TRABAJADOR || p["ID Trabajador"] || "";
-        var nombre = p.nombre || p.NOMBRE_COMPLETO || p.NOMBRE || "Sin nombre";
-        var programa = p.programa || p.TIPO_PROGRAMA || "";
-        var tutor = p.tutor || p.TUTOR || p.TUTOR_ASIGNADO || "Sin tutor";
-        var departamento = p.departamento || p.DEPARTAMENTO_ORIGEN || p.DEPARTAMENTO || "-";
-        var estado = p.estado || p.ESTADO || "En curso";
-
-        var riesgo = "";
-        if (typeof PersonaService !== "undefined" && PersonaService.getRiesgo) {
-          riesgo = PersonaService.getRiesgo(p);
-        } else {
-          riesgo = p.riesgo || p.RIESGO || "Bajo";
-        }
-
-        var dias = 0;
-        if (typeof PersonaService !== "undefined" && PersonaService.diasSeguimiento) {
-          dias = PersonaService.diasSeguimiento(p);
-        } else {
-          dias = p.diasSeguimiento || p.DIAS_EN_SEGUIMIENTO || 0;
-        }
-
-        var totalDias = programa == "Mili 3.0" ? 10 : 30;
-        var avanceDias = Math.min(100, Math.max(0, Math.round((dias / totalDias) * 100)));
-
-        var checklist = 0;
-        if (typeof PersonaService !== "undefined" && PersonaService.getChecklistProgress) {
-          checklist = PersonaService.getChecklistProgress(p);
-        } else {
-          checklist = p.porcentajePreparacion || p.PORCENTAJE_PREPARACION || 0;
-        }
-
-        checklist = Math.min(100, Math.max(0, Number(checklist || 0)));
-
-        var checksTotal = 12;
-        var checksDone = Math.round((checklist / 100) * checksTotal);
-
-        var productividad = "";
-        if (typeof PersonaService !== "undefined" && PersonaService.getProductividadMedia) {
-          productividad = PersonaService.getProductividadMedia(p);
-        } else {
-          productividad = p.productividad || p.MEDIA_PRODUCTIVIDAD || p.PRODUCTIVIDAD_MEDIA || "";
-        }
-
-        var error = "";
-        if (typeof PersonaService !== "undefined" && PersonaService.getErrorMedio) {
-          error = PersonaService.getErrorMedio(p);
-        } else {
-          error = p.error || p.ERROR_PCT_TOTAL || p.ERROR_MEDIO || "";
-        }
-
-        var proxima = "Revisar expediente";
-        if (typeof PersonaService !== "undefined" && PersonaService.getNextAction) {
-          proxima = PersonaService.getNextAction(p);
-        }
-
-        var iniciales = nombre
-          .split(" ")
-          .filter(function(x){ return x; })
-          .map(function(x){ return x.charAt(0); })
-          .join("")
-          .substring(0,2)
-          .toUpperCase();
-
-        var riesgoClass = String(riesgo || "").toLowerCase();
-
-        if (riesgoClass.indexOf("alto") >= 0) {
-          riesgoClass = "alto";
-        } else if (riesgoClass.indexOf("medio") >= 0) {
-          riesgoClass = "medio";
-        } else {
-          riesgoClass = "bajo";
-        }
-
-        var programaClass = programa == "Mili 3.0" ? "mili" : "nueva";
-
-      ?>
-
-      <article
-        class="personaRow"
-        data-nombre="<?= nombre ?>"
-        data-id="<?= id ?>"
-        data-programa="<?= programa ?>"
-        data-tutor="<?= tutor ?>"
-        data-estado="<?= estado ?>"
-        data-riesgo="<?= riesgoClass ?>"
-        data-dias="<?= dias ?>">
-
-        <div class="personaIdentity">
-          <div class="avatar">
-            <?= iniciales ?>
-            <span class="statusDot <?= riesgoClass ?>"></span>
-          </div>
-
-          <div>
-            <h3><?= nombre ?></h3>
-            <p>ID: <?= id ?></p>
-            <span class="programBadge <?= programaClass ?>"><?= programa ?></span>
-          </div>
-        </div>
-
-
-        <div class="personaMeta">
-          <small>Tutor</small>
-          <strong>👤 <?= tutor ?></strong>
-          <small>Departamento</small>
-          <strong>🏢 <?= departamento ?></strong>
-        </div>
-
-
-        <div class="personaProgress">
-          <small>Día en seguimiento</small>
-          <strong><?= dias ?> / <?= totalDias ?></strong>
-          <div class="miniProgress">
-            <div class="progressFill" data-width="<?= avanceDias ?>"></div>
-          </div>
-        </div>
-
-
-        <div class="personaProgress">
-          <small>Checklist</small>
-          <strong><?= checksDone ?> / <?= checksTotal ?></strong>
-          <div class="miniProgress checklist">
-            <div class="progressFill" data-width="<?= checklist ?>"></div>
-          </div>
-        </div>
-
-
-        <div class="personaMetric">
-          <small>Productividad media</small>
-          <? if(productividad && Number(productividad) > 0){ ?>
-            <strong><?= productividad ?>%</strong>
-            <div class="sparkline positive"></div>
-          <? } else { ?>
-            <strong>—</strong>
-            <div class="emptyLine"></div>
-          <? } ?>
-        </div>
-
-
-        <div class="personaMetric">
-          <small>Error medio</small>
-          <? if(error && Number(error) > 0){ ?>
-            <strong><?= error ?>%</strong>
-            <div class="sparkline negative"></div>
-          <? } else { ?>
-            <strong>—</strong>
-            <div class="emptyLine"></div>
-          <? } ?>
-        </div>
-
-
-        <div class="riskBlock <?= riesgoClass ?>">
-          <span class="shield">🛡</span>
-          <strong><?= riesgo ?></strong>
-        </div>
-
-
-        <div class="nextAction">
-          <small>Próxima acción</small>
-          <strong><?= proxima ?></strong>
-        </div>
-
-
-        <div class="rowActions">
-          <a href="?page=empleado&id=<?= id ?>" class="openBtn">
-            Abrir expediente →
-          </a>
-        </div>
-
-      </article>
-
-      <? }); ?>
-
-    </section>
+    <section id="cardsContainer" class="cards"></section>
 
   </main>
-
 </div>
 
-
 <script>
-document.addEventListener("DOMContentLoaded", function(){
-  aplicarBarrasProgreso();
+const centroState = {
+  items: [],
+  filtered: [],
+  generatedAt: "",
+  summary: {},
+  filters: {}
+};
+
+const riskWeightMap = {
+  alto: 3,
+  medio: 2,
+  bajo: 1
+};
+
+const alertLabels = {
+  "riesgo-alto": "Riesgo alto",
+  "checklist-pendiente": "Checklist pendiente",
+  "documentacion-pendiente": "Documentación pendiente",
+  "evaluaciones-pendientes": "Evaluaciones pendientes",
+  "productividad-baja": "Productividad baja",
+  "errores-altos": "Errores altos",
+  "sin-tutor": "Sin tutor"
+};
+
+const alertWarn = {
+  "checklist-pendiente": true,
+  "documentacion-pendiente": true,
+  "evaluaciones-pendientes": true
+};
+
+
+document.addEventListener("DOMContentLoaded", function() {
+  loadCentroData();
 });
 
 
-function aplicarBarrasProgreso(){
-  document.querySelectorAll(".progressFill").forEach(function(el){
-    const width = Number(el.dataset.width || 0);
-    const safeWidth = Math.max(0, Math.min(100, width));
-    el.style.width = safeWidth + "%";
+function loadCentroData() {
+  setLoading(true);
+
+  google.script.run
+    .withSuccessHandler(function(response) {
+      centroState.items = Array.isArray(response.items) ? response.items : [];
+      centroState.summary = response.summary || {};
+      centroState.filters = response.filters || {};
+      centroState.generatedAt = response.generatedAt || "";
+
+      hydrateFilterOptions();
+      renderSummary();
+      renderUpdatedAt();
+      applyFiltersAndRender();
+      setLoading(false);
+    })
+    .withFailureHandler(function(error) {
+      setLoading(false);
+      document.getElementById("cardsContainer").innerHTML =
+        "<div class='empty'>No se ha podido cargar el Centro de Seguimiento: " +
+        escapeHtml(error && error.message ? error.message : "Error desconocido") +
+        "</div>";
+    })
+    .getCentroSeguimientoData();
+}
+
+
+function reloadData() {
+  loadCentroData();
+}
+
+
+function hydrateFilterOptions() {
+  fillSelect("filterTutor", centroState.filters.tutores || []);
+  fillSelect("filterPrograma", centroState.filters.programas || []);
+  fillSelect("filterDepartamento", centroState.filters.departamentos || []);
+  fillSelect("filterEstado", centroState.filters.estados || []);
+  fillSelect("filterFase", centroState.filters.fases || []);
+  fillSelect("filterRiesgo", centroState.filters.riesgos || []);
+}
+
+
+function fillSelect(id, values) {
+  const select = document.getElementById(id);
+  if (!select) return;
+
+  const current = select.value || "";
+  const options = ["<option value=''>Todos</option>"];
+
+  values.forEach(function(v) {
+    options.push("<option value='" + escapeAttr(v) + "'>" + escapeHtml(v) + "</option>");
+  });
+
+  select.innerHTML = options.join("");
+  select.value = current;
+}
+
+
+function renderSummary() {
+  const s = centroState.summary || {};
+
+  const cards = [
+    { key: "total", label: "Total personas", tone: "" },
+    { key: "riesgoAlto", label: "Riesgo alto", tone: "danger" },
+    { key: "checklistPendiente", label: "Checklist pendiente", tone: "warn" },
+    { key: "documentacionPendiente", label: "Documentación pendiente", tone: "warn" },
+    { key: "evaluacionesPendientes", label: "Evaluaciones pendientes", tone: "warn" },
+    { key: "productividadBaja", label: "Productividad baja", tone: "danger" },
+    { key: "erroresAltos", label: "Errores altos", tone: "danger" },
+    { key: "sinTutor", label: "Sin tutor", tone: "warn" }
+  ];
+
+  document.getElementById("summaryGrid").innerHTML = cards.map(function(card) {
+    return "<article class='summaryCard " + card.tone + "'>" +
+      "<span>" + card.label + "</span>" +
+      "<strong>" + toSafeNumber(s[card.key]) + "</strong>" +
+    "</article>";
+  }).join("");
+}
+
+
+function renderUpdatedAt() {
+  document.getElementById("updatedAt").textContent = formatDateTime(centroState.generatedAt);
+}
+
+
+function applyFiltersAndRender() {
+  const search = normalizeText(getValue("filterSearch"));
+  const tutor = normalizeText(getValue("filterTutor"));
+  const programa = normalizeText(getValue("filterPrograma"));
+  const departamento = normalizeText(getValue("filterDepartamento"));
+  const estado = normalizeText(getValue("filterEstado"));
+  const fase = normalizeText(getValue("filterFase"));
+  const riesgo = normalizeText(getValue("filterRiesgo"));
+  const checklistFilter = getValue("filterChecklist");
+  const documentacionFilter = getValue("filterDocumentacion");
+  const evaluacionFilter = getValue("filterEvaluacion");
+
+  let filtered = centroState.items.filter(function(item) {
+    const lookup = normalizeText([
+      item.nombre,
+      item.id,
+      item.tutor,
+      item.programa,
+      item.departamento
+    ].join(" "));
+
+    if (search && lookup.indexOf(search) < 0) return false;
+    if (tutor && normalizeText(item.tutor) !== tutor) return false;
+    if (programa && normalizeText(item.programa) !== programa) return false;
+    if (departamento && normalizeText(item.departamento) !== departamento) return false;
+    if (estado && normalizeText(item.estado) !== estado) return false;
+    if (fase && normalizeText(item.fase) !== fase) return false;
+    if (riesgo && normalizeText(item.riesgo) !== riesgo) return false;
+
+    if (checklistFilter === "pendiente" && Number(item.checklist.pendientes || 0) === 0) return false;
+    if (checklistFilter === "completo" && Number(item.checklist.pendientes || 0) > 0) return false;
+
+    if (documentacionFilter === "pendiente" && Number(item.documentacion.pendientes || 0) === 0) return false;
+    if (documentacionFilter === "completo" && Number(item.documentacion.pendientes || 0) > 0) return false;
+
+    if (evaluacionFilter === "pendiente" && Number(item.evaluaciones.pendientes || 0) === 0) return false;
+    if (evaluacionFilter === "completo" && Number(item.evaluaciones.pendientes || 0) > 0) return false;
+
+    return true;
+  });
+
+  filtered = sortItems(filtered);
+  centroState.filtered = filtered;
+
+  renderCards(filtered);
+  renderCounters(filtered.length);
+}
+
+
+function sortItems(list) {
+  const key = getValue("sortKey") || "nombre";
+  const dir = getValue("sortDir") || "desc";
+  const sign = dir === "asc" ? 1 : -1;
+
+  return list.slice().sort(function(a, b) {
+    let va;
+    let vb;
+
+    if (key === "nombre") {
+      va = normalizeText(a.nombre);
+      vb = normalizeText(b.nombre);
+    } else if (key === "tutor") {
+      va = normalizeText(a.tutor);
+      vb = normalizeText(b.tutor);
+    } else if (key === "dias") {
+      va = Number(a.diasSeguimiento || 0);
+      vb = Number(b.diasSeguimiento || 0);
+    } else if (key === "riesgo") {
+      va = riskWeight(normalizeText(a.riesgo));
+      vb = riskWeight(normalizeText(b.riesgo));
+    } else if (key === "productividad") {
+      va = Number(a.productividad || 0);
+      vb = Number(b.productividad || 0);
+    } else if (key === "errores") {
+      va = Number(a.errores || 0);
+      vb = Number(b.errores || 0);
+    } else if (key === "checklist") {
+      va = Number(a.checklist.porcentaje || 0);
+      vb = Number(b.checklist.porcentaje || 0);
+    } else if (key === "documentacion") {
+      va = Number(a.documentacion.porcentaje || 0);
+      vb = Number(b.documentacion.porcentaje || 0);
+    } else {
+      va = normalizeText(a.nombre);
+      vb = normalizeText(b.nombre);
+    }
+
+    if (va < vb) return -1 * sign;
+    if (va > vb) return 1 * sign;
+    return 0;
   });
 }
 
 
-function limpiarTexto(valor){
-  return String(valor || "")
+function renderCards(items) {
+  const container = document.getElementById("cardsContainer");
+
+  if (!items.length) {
+    container.innerHTML = "<div class='empty'>No hay personas para los filtros seleccionados.</div>";
+    return;
+  }
+
+  container.innerHTML = items.map(function(item) {
+    return buildCard(item);
+  }).join("");
+
+  applyProgressBars();
+}
+
+
+function buildCard(item) {
+  const alerts = (item.alertas || []).map(function(code) {
+    const warnClass = alertWarn[code] ? " warn" : "";
+    return "<span class='alertChip" + warnClass + "'>" + escapeHtml(alertLabels[code] || code) + "</span>";
+  }).join("");
+
+  const riskPill =
+    "<span class='riskPill' style='background:" + escapeAttr(item.riesgoColor || "#687a8f") + ";'>" +
+      escapeHtml(item.riesgo || "Sin riesgo") +
+    "</span>";
+
+  return "<article class='personaCard' style='border-left-color:" + escapeAttr(item.riesgoColor || "#93a5b9") + ";'>" +
+      "<div class='personaHead'>" +
+        "<div>" +
+          "<h3 class='personaName'>" + escapeHtml(item.nombre || "Sin nombre") + "</h3>" +
+          "<p class='personaMeta'>ID " + escapeHtml(item.id || "-") + " · " +
+            escapeHtml(item.programa || "Sin programa") + " · " +
+            escapeHtml(item.departamento || "Sin departamento") + "</p>" +
+        "</div>" +
+        riskPill +
+      "</div>" +
+
+      "<div class='badgeRow'>" +
+        "<span class='badge'>Estado: " + escapeHtml(item.estado || "-") + "</span>" +
+        "<span class='badge'>Fase: " + escapeHtml(item.fase || "-") + "</span>" +
+        "<span class='badge'>Tutor: " + escapeHtml(item.tutor || "Sin tutor") + "</span>" +
+      "</div>" +
+
+      "<div class='metricsGrid'>" +
+        metricProgress("Seguimiento", item.porcentajeSeguimiento, item.diasSeguimiento + " días · " + item.diasRestantes + " restantes") +
+        metricProgress("Checklist", item.checklist.porcentaje, item.checklist.pendientes + " pendientes") +
+        metricProgress("Documentación", item.documentacion.porcentaje, item.documentacion.pendientes + " pendientes") +
+        metricText("Evaluaciones", (item.evaluaciones.media || 0) + " media", item.evaluaciones.pendientes + " pendientes") +
+        metricText("Productividad", pct(item.productividad), "Líneas/hora: " + num(item.lineasHora)) +
+        metricText("Errores", pct(item.errores), "Pendientes total: " + num(item.pendientesTotal)) +
+      "</div>" +
+
+      (alerts ? "<div class='alertRow'>" + alerts + "</div>" : "") +
+
+      "<div class='quickRow'>" +
+        "<a class='quickBtn' href='?page=empleado&id=" + encodeURIComponent(item.id || "") + "'>Abrir expediente</a>" +
+        "<button class='quickBtn' onclick=\"openExpedienteTab('" + jsString(item.id || "") + "','timeline')\">Ver timeline</button>" +
+        "<button class='quickBtn' onclick=\"openExpedienteTab('" + jsString(item.id || "") + "','checklist')\">Abrir checklist</button>" +
+        "<button class='quickBtn' onclick=\"openExpedienteTab('" + jsString(item.id || "") + "','documentacion')\">Ver documentación</button>" +
+        "<button class='quickBtn' onclick=\"openExpedienteTab('" + jsString(item.id || "") + "','evaluaciones')\">Ver evaluaciones</button>" +
+      "</div>" +
+
+      "<div class='lastActivity'>" +
+        "<strong>Última actividad:</strong> " + escapeHtml(item.ultimaActividad.titulo || "Sin actividad") +
+        (item.ultimaActividad.fecha ? "<span>" + escapeHtml(formatDate(item.ultimaActividad.fecha)) + "</span>" : "") +
+        (item.ultimaActividad.descripcion ? "<span>" + escapeHtml(item.ultimaActividad.descripcion) + "</span>" : "") +
+        "<span><strong>Próxima acción:</strong> " + escapeHtml(item.proximaAccion || "Revisar seguimiento") + "</span>" +
+      "</div>" +
+    "</article>";
+}
+
+
+function metricProgress(title, value, subtitle) {
+  const safe = clamp(value);
+
+  return "<div class='metric'>" +
+    "<small>" + escapeHtml(title) + "</small>" +
+    "<strong>" + pct(safe) + "</strong>" +
+    "<div class='progress'><span data-width='" + safe + "'></span></div>" +
+    "<small>" + escapeHtml(subtitle || "") + "</small>" +
+  "</div>";
+}
+
+
+function metricText(title, value, subtitle) {
+  return "<div class='metric'>" +
+    "<small>" + escapeHtml(title) + "</small>" +
+    "<strong>" + escapeHtml(String(value || "0")) + "</strong>" +
+    "<small>" + escapeHtml(subtitle || "") + "</small>" +
+  "</div>";
+}
+
+
+function applyProgressBars() {
+  document.querySelectorAll(".progress span[data-width]").forEach(function(el) {
+    el.style.width = clamp(el.getAttribute("data-width")) + "%";
+  });
+}
+
+
+function renderCounters(total) {
+  document.getElementById("resultCount").textContent = String(total);
+  document.getElementById("resultsInfo").textContent = total + " personas visibles";
+}
+
+
+function resetFilters() {
+  [
+    "filterSearch",
+    "filterTutor",
+    "filterPrograma",
+    "filterDepartamento",
+    "filterEstado",
+    "filterFase",
+    "filterRiesgo",
+    "filterChecklist",
+    "filterDocumentacion",
+    "filterEvaluacion"
+  ].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    if (el.tagName === "INPUT") {
+      el.value = "";
+    } else {
+      el.value = "";
+    }
+  });
+
+  document.getElementById("sortKey").value = "nombre";
+  document.getElementById("sortDir").value = "desc";
+
+  applyFiltersAndRender();
+}
+
+
+function openExpedienteTab(id, tab) {
+  if (!id) return;
+  const safeTab = encodeURIComponent(tab || "");
+  window.location.href = "?page=empleado&id=" + encodeURIComponent(id) + "&tab=" + safeTab;
+}
+
+
+function setLoading(isLoading) {
+  const container = document.getElementById("cardsContainer");
+  if (!container) return;
+
+  if (isLoading) {
+    container.innerHTML = "<div class='loading'>Cargando Centro de Seguimiento...</div>";
+  }
+}
+
+
+function getValue(id) {
+  const el = document.getElementById(id);
+  return el ? String(el.value || "") : "";
+}
+
+
+function normalizeText(value) {
+  return String(value || "")
     .toLowerCase()
+    .trim()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
 
 
-function filtrarPersonas(){
-  const texto = limpiarTexto(document.getElementById("buscarPersona").value);
-  const programa = limpiarTexto(document.getElementById("filtroPrograma").value);
-  const tutor = limpiarTexto(document.getElementById("filtroTutor").value);
-  const estado = limpiarTexto(document.getElementById("filtroEstado").value);
-  const riesgo = limpiarTexto(document.getElementById("filtroRiesgo").value);
-
-  let visibles = 0;
-
-  document.querySelectorAll(".personaRow").forEach(function(row){
-    const contenido = limpiarTexto(row.innerText);
-    const rowPrograma = limpiarTexto(row.dataset.programa);
-    const rowTutor = limpiarTexto(row.dataset.tutor);
-    const rowEstado = limpiarTexto(row.dataset.estado);
-    const rowRiesgo = limpiarTexto(row.dataset.riesgo);
-
-    const visible =
-      (!texto || contenido.includes(texto)) &&
-      (!programa || rowPrograma === programa) &&
-      (!tutor || rowTutor === tutor) &&
-      (!estado || rowEstado === estado) &&
-      (!riesgo || rowRiesgo === riesgo);
-
-    row.style.display = visible ? "grid" : "none";
-
-    if(visible){
-      visibles++;
-    }
-  });
-
-  document.getElementById("contadorResultados").innerText = visibles;
+function riskWeight(risk) {
+  return riskWeightMap[risk] || 0;
 }
 
 
-function limpiarBusqueda(){
-  document.getElementById("buscarPersona").value = "";
-  filtrarPersonas();
+function clamp(value) {
+  const n = Number(value || 0);
+  if (isNaN(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n * 100) / 100));
 }
 
 
-function limpiarFiltros(){
-  document.getElementById("buscarPersona").value = "";
-  document.getElementById("filtroPrograma").value = "";
-  document.getElementById("filtroTutor").value = "";
-  document.getElementById("filtroEstado").value = "";
-  document.getElementById("filtroRiesgo").value = "";
-  filtrarPersonas();
+function pct(value) {
+  return clamp(value) + "%";
 }
 
 
-let ordenAsc = true;
+function num(value) {
+  const n = Number(value || 0);
+  return isNaN(n) ? "0" : String(Math.round(n * 100) / 100);
+}
 
 
-function ordenarPersonas(tipo){
-  const lista = document.getElementById("personasList");
-  const filas = Array.from(lista.querySelectorAll(".personaRow"));
+function toSafeNumber(value) {
+  const n = Number(value || 0);
+  return isNaN(n) ? 0 : n;
+}
 
-  filas.sort(function(a,b){
-    let va;
-    let vb;
 
-    if(tipo === "dias"){
-      va = Number(a.dataset.dias || 0);
-      vb = Number(b.dataset.dias || 0);
-    } else if(tipo === "riesgo"){
-      const mapa = {
-        alto:3,
-        medio:2,
-        bajo:1
-      };
+function formatDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return String(value);
 
-      va = mapa[limpiarTexto(a.dataset.riesgo)] || 0;
-      vb = mapa[limpiarTexto(b.dataset.riesgo)] || 0;
-    } else {
-      va = limpiarTexto(a.dataset.nombre);
-      vb = limpiarTexto(b.dataset.nombre);
-    }
-
-    if(va < vb) return ordenAsc ? -1 : 1;
-    if(va > vb) return ordenAsc ? 1 : -1;
-    return 0;
+  return d.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
   });
+}
 
-  ordenAsc = !ordenAsc;
 
-  filas.forEach(function(fila){
-    lista.appendChild(fila);
+function formatDateTime(value) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+
+  return d.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
   });
+}
 
-  aplicarBarrasProgreso();
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function escapeAttr(value) {
+  return escapeHtml(value).replaceAll("`", "");
+}
+
+
+function jsString(value) {
+  return String(value || "")
+    .replaceAll("\\", "\\\\")
+    .replaceAll("'", "\\'")
+    .replaceAll('"', "\\\"");
 }
 </script>
 
 </body>
 </html>
-```

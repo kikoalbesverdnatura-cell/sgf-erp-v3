@@ -2,99 +2,34 @@
  * SGF ERP v3
  * PersonaService.js
  * -------------------------------------------------------------------
- * Gestión de personas
+ * Servicio maestro del dominio Personas.
  *
- * Este servicio normaliza los datos reales de MAESTRO_PERSONAS.
- * El resto del ERP debe trabajar con:
- *
- * persona.id
- * persona.nombre
- * persona.programa
- * persona.fechaIncorporacion
- * persona.departamento
- * persona.tutor
- * persona.estado
- * persona.productividad
- * persona.error
- * persona.riesgo
+ * Arquitectura de dominio:
+ * - Fuente de verdad: Google Sheets / MAESTRO_PERSONAS
+ * - Regla: toda la logica de negocio de Personas vive aqui.
  *********************************************************************/
 
 const PersonaService = {
 
+  /*******************************************************************
+   * BLOQUE 1 - OBTENCION DE DATOS
+   *******************************************************************/
   getAll() {
     return DataService
       .getAll(CONFIG.SHEETS.PERSONAS)
-      .map(function(row) {
-        return PersonaService.normalize(row);
-      });
+      .map((row) => this.normalize(row))
+      .filter((persona) => persona.id || persona.nombre);
   },
 
 
   getById(id) {
-    return this.getAll().find(function(persona) {
+    if (id === undefined || id === null || id === "") {
+      return null;
+    }
+
+    return this.getAll().find((persona) => {
       return String(persona.id) === String(id);
     }) || null;
-  },
-
-
-  normalize(row) {
-    row = row || {};
-
-    const persona = {
-      id: this.pick(row, ["ID_TRABAJADOR", "ID Trabajador", "ID"]),
-      nombre: this.pick(row, ["NOMBRE_COMPLETO", "NOMBRE", "Nombre"]),
-      programa: this.pick(row, ["TIPO_PROGRAMA", "PROGRAMA"]),
-      fechaIncorporacion: this.pick(row, ["FECHA_INCORPORACION", "Fecha incorporación"]),
-      departamento: this.pick(row, ["DEPARTAMENTO_ORIGEN", "DEPARTAMENTO"]),
-      horaEntrada: this.pick(row, ["HORA_ENTRADA"]),
-      observaciones: this.pick(row, ["Observaciones", "OBSERVACIONES"]),
-      idPrograma: this.pick(row, ["ID_PROGRAMA"]),
-      idFase: this.pick(row, ["ID_FASE"]),
-      estado: this.pick(row, ["ESTADO"]) || CONFIG.ESTADOS.EN_CURSO,
-      diasEnSeguimiento: this.toNumber(this.pick(row, ["DIAS_EN_SEGUIMIENTO"])),
-      diasRestantes: this.toNumber(this.pick(row, ["DIAS_RESTANTES"])),
-      tutor: this.pick(row, ["TUTOR_ASIGNADO", "TUTOR"]),
-      ultimaEvaluacion: this.pick(row, ["ULTIMA_EVALUACION"]),
-      mediaEvaluaciones: this.toNumber(this.pick(row, ["MEDIA_EVALUACIONES"])),
-      riesgoOriginal: this.pick(row, ["RIESGO"]),
-      porcentajePreparacion: this.toNumber(this.pick(row, ["PORCENTAJE_PREPARACION"])),
-      checklistCompletado: this.pick(row, ["CHECKLIST_COMPLETADO"]),
-      ultimaFechaGrafana: this.pick(row, ["ULTIMA_FECHA_GRAFANA"]),
-      productividad: this.toNumber(this.pick(row, ["PRODUCTIVIDAD_MEDIA", "MEDIA_PRODUCTIVIDAD"])),
-      error: this.toNumber(this.pick(row, ["ERROR_MEDIO", "ERROR_PCT_TOTAL"])),
-      activo: this.pick(row, ["ACTIVO"]),
-      finalizado: this.pick(row, ["FINALIZADO"]),
-      motivoBaja: this.pick(row, ["MOTIVO_BAJA"]),
-      fechaBaja: this.pick(row, ["FECHA_BAJA"]),
-      raw: row
-    };
-
-    persona.ID_TRABAJADOR = persona.id;
-    persona["ID Trabajador"] = persona.id;
-    persona.NOMBRE_COMPLETO = persona.nombre;
-    persona.TIPO_PROGRAMA = persona.programa;
-    persona.FECHA_INCORPORACION = persona.fechaIncorporacion;
-    persona.DEPARTAMENTO_ORIGEN = persona.departamento;
-    persona.HORA_ENTRADA = persona.horaEntrada;
-    persona.ESTADO = persona.estado;
-    persona.DIAS_EN_SEGUIMIENTO = persona.diasEnSeguimiento;
-    persona.DIAS_RESTANTES = persona.diasRestantes;
-    persona.TUTOR = persona.tutor;
-    persona.TUTOR_ASIGNADO = persona.tutor;
-    persona.ULTIMA_EVALUACION = persona.ultimaEvaluacion;
-    persona.MEDIA_EVALUACIONES = persona.mediaEvaluaciones;
-    persona.RIESGO = persona.riesgoOriginal;
-    persona.PORCENTAJE_PREPARACION = persona.porcentajePreparacion;
-    persona.CHECKLIST_COMPLETADO = persona.checklistCompletado;
-    persona.ULTIMA_FECHA_GRAFANA = persona.ultimaFechaGrafana;
-    persona.PRODUCTIVIDAD_MEDIA = persona.productividad;
-    persona.MEDIA_PRODUCTIVIDAD = persona.productividad;
-    persona.ERROR_MEDIO = persona.error;
-    persona.ERROR_PCT_TOTAL = persona.error;
-    persona.ACTIVO = persona.activo;
-    persona.FINALIZADO = persona.finalizado;
-
-    return persona;
   },
 
 
@@ -105,143 +40,431 @@ const PersonaService = {
       return this.getAll();
     }
 
-    return this.getAll().filter(function(persona) {
-      return PersonaService
-        .normalizar(JSON.stringify(persona))
-        .includes(q);
+    return this.getAll().filter((persona) => {
+      const base = [
+        persona.id,
+        persona.nombre,
+        persona.programa,
+        persona.departamento,
+        persona.tutor,
+        persona.estado,
+        this.getRiesgo(persona)
+      ].join(" ");
+
+      return this.normalizar(base).includes(q);
     });
   },
 
 
-  getNuevasIncorporaciones() {
-    return this.getAll().filter(function(persona) {
-      return persona.programa === CONFIG.PROGRAMAS.NUEVA;
-    });
+  normalize(row) {
+    const source = row || {};
+
+    const persona = {
+      id: this.pick(source, ["ID_TRABAJADOR", "ID Trabajador", "ID"]),
+      nombre: this.pick(source, ["NOMBRE_COMPLETO", "NOMBRE", "Nombre"]),
+      programa: this.pick(source, ["TIPO_PROGRAMA", "PROGRAMA"]),
+      fechaIncorporacion: this.pick(source, ["FECHA_INCORPORACION", "Fecha incorporación"]),
+      departamento: this.pick(source, ["DEPARTAMENTO_ORIGEN", "DEPARTAMENTO"]),
+      horaEntrada: this.pick(source, ["HORA_ENTRADA"]),
+      observaciones: this.pick(source, ["OBSERVACIONES", "Observaciones"]),
+
+      idPrograma: this.pick(source, ["ID_PROGRAMA"]),
+      idFase: this.pick(source, ["ID_FASE"]),
+
+      estado: this.pick(source, ["ESTADO"]) || CONFIG.ESTADOS.EN_CURSO,
+      diasEnSeguimiento: this.toNumber(this.pick(source, ["DIAS_EN_SEGUIMIENTO"])),
+      diasRestantes: this.toNumber(this.pick(source, ["DIAS_RESTANTES"])),
+
+      rrhh: this.pick(source, ["RRHH"]),
+      almuerzo: this.pick(source, ["ALMUERZO"]),
+      uniforme: this.pick(source, ["UNIFORME"]),
+      psicotecnico: this.pick(source, ["PSICOTECNICO"]),
+      formacionBienvenida: this.pick(source, ["FORMACION_BIENVENIDA"]),
+      tourEmpresa: this.pick(source, ["TOUR_EMPRESA"]),
+      pdaEntregada: this.pick(source, ["PDA_ENTREGADA"]),
+      pdaDocumento: this.pick(source, ["PDA_DOCUMENTO", "PDA_FIRMADA"]),
+      pdaFechaFirma: this.pick(source, ["PDA_FECHA_FIRMA"]),
+
+      tutor: this.pick(source, ["TUTOR_ASIGNADO", "TUTOR"]),
+
+      ultimaEvaluacion: this.pick(source, ["ULTIMA_EVALUACION"]),
+      mediaEvaluaciones: this.toNumber(this.pick(source, ["MEDIA_EVALUACIONES"])),
+
+      riesgoOriginal: this.pick(source, ["RIESGO"]),
+      porcentajePreparacion: this.toNumber(this.pick(source, ["PORCENTAJE_PREPARACION"])),
+      checklistCompletado: this.pick(source, ["CHECKLIST_COMPLETADO"]),
+
+      ultimaFechaGrafana: this.pick(source, ["ULTIMA_FECHA_GRAFANA"]),
+      productividad: this.toNumber(this.pick(source, ["PRODUCTIVIDAD_MEDIA", "MEDIA_PRODUCTIVIDAD"])),
+      error: this.toNumber(this.pick(source, ["ERROR_MEDIO", "ERROR_PCT_TOTAL"])),
+
+      activo: this.pick(source, ["ACTIVO"]),
+      finalizado: this.pick(source, ["FINALIZADO"]),
+
+      motivoBaja: this.pick(source, ["MOTIVO_BAJA"]),
+      fechaBaja: this.pick(source, ["FECHA_BAJA"]),
+
+      raw: source
+    };
+
+    persona.riesgo = this.getRiesgo(persona);
+
+    return persona;
   },
 
 
-  getMili() {
-    return this.getAll().filter(function(persona) {
-      return persona.programa === CONFIG.PROGRAMAS.MILI;
+  /*******************************************************************
+   * BLOQUE EXTRA - OPERACIONES DE ESCRITURA DEL DOMINIO
+   *******************************************************************/
+  update(id, data) {
+    if (id === undefined || id === null || id === "") {
+      throw new Error("ID de persona obligatorio para update().");
+    }
+
+    const actual = this.getById(id);
+
+    if (!actual) {
+      throw new Error("Persona no encontrada: " + id);
+    }
+
+    const patch = data || {};
+    const siguiente = this.normalize(Object.assign({}, actual.raw || {}, patch));
+
+    const map = {
+      nombre: "NOMBRE_COMPLETO",
+      programa: "TIPO_PROGRAMA",
+      fechaIncorporacion: "FECHA_INCORPORACION",
+      departamento: "DEPARTAMENTO_ORIGEN",
+      horaEntrada: "HORA_ENTRADA",
+      observaciones: "OBSERVACIONES",
+      idPrograma: "ID_PROGRAMA",
+      idFase: "ID_FASE",
+      estado: "ESTADO",
+      diasEnSeguimiento: "DIAS_EN_SEGUIMIENTO",
+      diasRestantes: "DIAS_RESTANTES",
+      rrhh: "RRHH",
+      almuerzo: "ALMUERZO",
+      uniforme: "UNIFORME",
+      psicotecnico: "PSICOTECNICO",
+      formacionBienvenida: "FORMACION_BIENVENIDA",
+      tourEmpresa: "TOUR_EMPRESA",
+      pdaEntregada: "PDA_ENTREGADA",
+      pdaDocumento: "PDA_DOCUMENTO",
+      pdaFechaFirma: "PDA_FECHA_FIRMA",
+      tutor: "TUTOR_ASIGNADO",
+      ultimaEvaluacion: "ULTIMA_EVALUACION",
+      mediaEvaluaciones: "MEDIA_EVALUACIONES",
+      porcentajePreparacion: "PORCENTAJE_PREPARACION",
+      checklistCompletado: "CHECKLIST_COMPLETADO",
+      ultimaFechaGrafana: "ULTIMA_FECHA_GRAFANA",
+      productividad: "PRODUCTIVIDAD_MEDIA",
+      error: "ERROR_MEDIO",
+      activo: "ACTIVO",
+      finalizado: "FINALIZADO",
+      motivoBaja: "MOTIVO_BAJA",
+      fechaBaja: "FECHA_BAJA"
+    };
+
+    const payload = {};
+
+    Object.keys(map).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(patch, key)) {
+        payload[map[key]] = patch[key];
+      }
     });
+
+    if (Object.prototype.hasOwnProperty.call(patch, "tutor")) {
+      payload.TUTOR = patch.tutor;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(patch, "pdaDocumento")) {
+      payload.PDA_FIRMADA = patch.pdaDocumento;
+    }
+
+    // RIESGO se persiste coherente con el estado final tras el patch.
+    payload.RIESGO = Object.prototype.hasOwnProperty.call(patch, "riesgoOriginal")
+      ? patch.riesgoOriginal
+      : this.getRiesgo(siguiente);
+
+    return DataService.update(
+      CONFIG.SHEETS.PERSONAS,
+      "ID_TRABAJADOR",
+      this.getId(actual),
+      payload
+    );
   },
 
 
+  /*******************************************************************
+   * BLOQUE 2 - CONSULTAS
+   *******************************************************************/
   getEnSeguimiento() {
-    return this.getAll().filter(function(persona) {
+    return this.getAll().filter((persona) => {
       return persona.estado !== CONFIG.ESTADOS.FINALIZADO &&
              persona.estado !== CONFIG.ESTADOS.BAJA;
     });
   },
 
 
-  getByTutor(tutor) {
-    return this.getAll().filter(function(persona) {
-      return String(persona.tutor || "") === String(tutor);
+  getFinalizados() {
+    return this.getAll().filter((persona) => {
+      return persona.estado === CONFIG.ESTADOS.FINALIZADO;
     });
   },
 
 
   getHoy() {
-    return this.getByFechaIncorporacion(new Date());
+    const hoy = this.startOfDay(new Date());
+
+    return this.getEnSeguimiento().filter((persona) => {
+      if (!persona.fechaIncorporacion) return false;
+
+      const fecha = this.startOfDay(new Date(persona.fechaIncorporacion));
+      return fecha.getTime() === hoy.getTime();
+    });
   },
 
 
   getManana() {
-    const manana = new Date();
+    const manana = this.startOfDay(new Date());
     manana.setDate(manana.getDate() + 1);
-    return this.getByFechaIncorporacion(manana);
+
+    return this.getEnSeguimiento().filter((persona) => {
+      if (!persona.fechaIncorporacion) return false;
+
+      const fecha = this.startOfDay(new Date(persona.fechaIncorporacion));
+      return fecha.getTime() === manana.getTime();
+    });
   },
 
 
   getEstaSemana() {
     const hoy = this.startOfDay(new Date());
-    const dentro7 = this.startOfDay(new Date());
-    dentro7.setDate(dentro7.getDate() + 7);
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + 7);
 
-    return this.getAll().filter(function(persona) {
+    return this.getEnSeguimiento().filter((persona) => {
       if (!persona.fechaIncorporacion) return false;
 
-      const fecha = PersonaService.startOfDay(
-        new Date(persona.fechaIncorporacion)
-      );
-
-      return fecha >= hoy && fecha <= dentro7;
+      const fecha = this.startOfDay(new Date(persona.fechaIncorporacion));
+      return fecha >= hoy && fecha <= limite;
     });
   },
 
 
   getFinalizanEstaSemana() {
     const hoy = this.startOfDay(new Date());
-    const dentro7 = this.startOfDay(new Date());
-    dentro7.setDate(dentro7.getDate() + 7);
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() + 7);
 
-    return this.getAll().filter(function(persona) {
-      if (!persona.raw.FECHA_FIN_SEGUIMIENTO) return false;
-
-      const fecha = PersonaService.startOfDay(
-        new Date(persona.raw.FECHA_FIN_SEGUIMIENTO)
-      );
-
-      return fecha >= hoy && fecha <= dentro7;
-    });
-  },
-
-
-  getRiesgoAlto() {
-    return this.getAll().filter(function(persona) {
-      return PersonaService.getRiesgo(persona) === CONFIG.RIESGO.ALTO;
-    });
-  },
-
-
-  getByFechaIncorporacion(fechaObjetivo) {
-    const objetivo = Utilities.formatDate(
-      new Date(fechaObjetivo),
-      CONFIG.APP.TIMEZONE,
-      "yyyyMMdd"
-    );
-
-    return this.getAll().filter(function(persona) {
+    return this.getEnSeguimiento().filter((persona) => {
       if (!persona.fechaIncorporacion) return false;
 
-      const fecha = Utilities.formatDate(
-        new Date(persona.fechaIncorporacion),
-        CONFIG.APP.TIMEZONE,
-        "yyyyMMdd"
-      );
+      const fin = this.startOfDay(new Date(persona.fechaIncorporacion));
+      fin.setDate(fin.getDate() + this.getDiasTotales(persona));
 
-      return fecha === objetivo;
+      return fin >= hoy && fin <= limite;
     });
   },
 
 
-  diasSeguimiento(persona) {
-    if (!persona) return 0;
+  getFormadores() {
+    const mapa = {};
 
-    if (persona.diasEnSeguimiento) {
-      return this.toNumber(persona.diasEnSeguimiento);
+    this.getEnSeguimiento().forEach((persona) => {
+      const tutor = persona.tutor || "Sin tutor";
+      mapa[tutor] = (mapa[tutor] || 0) + 1;
+    });
+
+    return Object.keys(mapa)
+      .map((nombre) => {
+        return {
+          nombre: nombre,
+          personas: mapa[nombre]
+        };
+      })
+      .sort((a, b) => b.personas - a.personas);
+  },
+
+
+  /*******************************************************************
+   * BLOQUE 3 - KPIs
+   *******************************************************************/
+  getResumen(personas) {
+    const base = personas || this.getAll();
+
+    const total = base.length;
+    const nuevas = base.filter((persona) => {
+      return persona.programa === CONFIG.PROGRAMAS.NUEVA;
+    }).length;
+
+    const mili = base.filter((persona) => {
+      return persona.programa === CONFIG.PROGRAMAS.MILI;
+    }).length;
+
+    const riesgoAlto = base.filter((persona) => {
+      return this.getRiesgo(persona) === CONFIG.RIESGO.ALTO;
+    }).length;
+
+    const formadores = this.getFormadores().filter((f) => {
+      return f.nombre !== "Sin tutor";
+    }).length;
+
+    return {
+      total: total,
+      nuevas: nuevas,
+      mili: mili,
+      riesgo: riesgoAlto,
+      formadores: formadores,
+      nuevasPct: this.pct(nuevas, total),
+      miliPct: this.pct(mili, total)
+    };
+  },
+
+
+  getStats() {
+    const resumen = this.getResumen();
+    const enSeguimiento = this.getEnSeguimiento();
+
+    const riesgoAlto = enSeguimiento.filter((persona) => {
+      return this.getRiesgo(persona) === CONFIG.RIESGO.ALTO;
+    }).length;
+
+    const riesgoMedio = enSeguimiento.filter((persona) => {
+      return this.getRiesgo(persona) === CONFIG.RIESGO.MEDIO;
+    }).length;
+
+    const riesgoBajo = enSeguimiento.filter((persona) => {
+      return this.getRiesgo(persona) === CONFIG.RIESGO.BAJO;
+    }).length;
+
+    return {
+      total: resumen.total,
+      activos: enSeguimiento.length,
+      enSeguimiento: enSeguimiento.length,
+      nuevas: resumen.nuevas,
+      onboarding: resumen.nuevas,
+      mili: resumen.mili,
+      riesgoAlto: riesgoAlto,
+      riesgoMedio: riesgoMedio,
+      riesgoBajo: riesgoBajo,
+      finalizados: this.getFinalizados().length,
+      formadores: resumen.formadores,
+      sinTutor: enSeguimiento.filter((persona) => !persona.tutor).length,
+      hoy: this.getHoy().length,
+      manana: this.getManana().length,
+      estaSemana: this.getEstaSemana().length,
+      finalizanEstaSemana: this.getFinalizanEstaSemana().length
+    };
+  },
+
+
+  getKPIs() {
+    const personas = this.getEnSeguimiento();
+
+    if (!personas.length) {
+      return {
+        personas: 0,
+        checklistMedio: 0,
+        productividadMedia: 0,
+        errorMedio: 0,
+        seguimientoMedio: 0,
+        riesgoAlto: 0,
+        riesgoMedio: 0,
+        riesgoBajo: 0
+      };
     }
 
-    if (!persona.fechaIncorporacion) {
+    const acc = personas.reduce((memo, persona) => {
+      memo.checklist += this.getChecklistProgress(persona);
+      memo.productividad += this.getProductividadMedia(persona);
+      memo.error += this.getErrorMedio(persona);
+      memo.seguimiento += this.getPorcentajeSeguimiento(persona);
+      return memo;
+    }, {
+      checklist: 0,
+      productividad: 0,
+      error: 0,
+      seguimiento: 0
+    });
+
+    const stats = this.getStats();
+
+    return {
+      personas: personas.length,
+      checklistMedio: Math.round(acc.checklist / personas.length),
+      productividadMedia: Math.round(acc.productividad / personas.length),
+      errorMedio: Math.round((acc.error / personas.length) * 100) / 100,
+      seguimientoMedio: Math.round(acc.seguimiento / personas.length),
+      riesgoAlto: stats.riesgoAlto,
+      riesgoMedio: stats.riesgoMedio,
+      riesgoBajo: stats.riesgoBajo
+    };
+  },
+
+
+  /*******************************************************************
+   * BLOQUE 4 - INDICADORES
+   *******************************************************************/
+  getChecklistProgress(persona) {
+    const p = persona || {};
+
+    if (this.toNumber(p.porcentajePreparacion) > 0) {
+      return this.toNumber(p.porcentajePreparacion);
+    }
+
+    if (this.isTrue(p.checklistCompletado)) {
+      return 100;
+    }
+
+    const checks = [
+      p.rrhh,
+      p.almuerzo,
+      p.uniforme,
+      p.psicotecnico,
+      p.formacionBienvenida,
+      p.tourEmpresa,
+      p.pdaEntregada,
+      p.pdaDocumento
+    ];
+
+    const total = checks.length;
+    const completados = checks.filter((valor) => this.isTrue(valor)).length;
+
+    return total ? Math.round((completados / total) * 100) : 0;
+  },
+
+
+  getProductividadMedia(persona) {
+    return this.toNumber(persona && persona.productividad);
+  },
+
+
+  getErrorMedio(persona) {
+    return this.toNumber(persona && persona.error);
+  },
+
+
+  getDiasSeguimiento(persona) {
+    if (!persona || !persona.fechaIncorporacion) {
       return 0;
     }
 
-    const inicio = this.startOfDay(
-      new Date(persona.fechaIncorporacion)
-    );
-
+    const inicio = this.startOfDay(new Date(persona.fechaIncorporacion));
     const hoy = this.startOfDay(new Date());
 
-    const dias = Math.floor(
-      (hoy.getTime() - inicio.getTime()) / 86400000
+    return Math.max(
+      0,
+      Math.floor((hoy.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24))
     );
-
-    return dias > 0 ? dias : 0;
   },
 
 
   getDiasTotales(persona) {
+    if (persona && this.toNumber(persona.diasEnSeguimiento) > 0) {
+      return this.toNumber(persona.diasEnSeguimiento);
+    }
+
     if (persona && persona.programa === CONFIG.PROGRAMAS.MILI) {
       return CONFIG.SYSTEM.DIAS_MILI;
     }
@@ -250,98 +473,90 @@ const PersonaService = {
   },
 
 
-  getProgresoSeguimiento(persona) {
-    const dias = this.diasSeguimiento(persona);
+  getPorcentajeSeguimiento(persona) {
     const total = this.getDiasTotales(persona);
 
-    if (!total) return 0;
+    if (!total) {
+      return 0;
+    }
 
-    const pct = Math.round((dias / total) * 100);
-
-    return Math.min(100, Math.max(0, pct));
+    const dias = this.getDiasSeguimiento(persona);
+    return Math.min(100, Math.round((dias / total) * 100));
   },
 
 
-  getChecklistProgress(persona) {
-    const id = this.getId(persona);
-
-    if (!id || typeof ChecklistService === "undefined") {
-      return this.toNumber(persona.porcentajePreparacion || 0);
-    }
-
-    return ChecklistService.getProgress(id);
+  // Alias operativo para consumidores ya existentes.
+  diasSeguimiento(persona) {
+    return this.getDiasSeguimiento(persona);
   },
 
 
-  getChecklistCompleted(persona) {
-    const id = this.getId(persona);
-
-    if (!id || typeof ChecklistService === "undefined") {
-      const pct = this.getChecklistProgress(persona);
-      return Math.round((pct / 100) * CONFIG.CHECKS.length);
-    }
-
-    return ChecklistService.countCompleted(id);
+  // Alias operativo para consumidores ya existentes.
+  getProgresoSeguimiento(persona) {
+    return this.getPorcentajeSeguimiento(persona);
   },
 
 
   getNextAction(persona) {
-    const id = this.getId(persona);
-
-    if (!id || typeof ChecklistService === "undefined") {
-      return "Revisar expediente";
+    if (!persona) {
+      return "Sin datos";
     }
 
-    return ChecklistService.getNextAction(id);
+    if (persona.estado === CONFIG.ESTADOS.FINALIZADO ||
+        persona.estado === CONFIG.ESTADOS.BAJA) {
+      return "Seguimiento completado";
+    }
+
+    if (this.getChecklistProgress(persona) < 100) {
+      return "Completar checklist";
+    }
+
+    if (!persona.tutor) {
+      return "Asignar tutor";
+    }
+
+    if (this.getProductividadMedia(persona) > 0 &&
+        this.getProductividadMedia(persona) < CONFIG.SYSTEM.PRODUCTIVIDAD_MINIMA) {
+      return "Revisar productividad";
+    }
+
+    if (this.getErrorMedio(persona) > CONFIG.SYSTEM.ERROR_MAXIMO) {
+      return "Reducir errores";
+    }
+
+    return "Seguimiento normal";
   },
 
 
-  getProductividadMedia(persona) {
-    return this.toNumber(
-      persona.productividad ||
-      persona.PRODUCTIVIDAD_MEDIA ||
-      persona.MEDIA_PRODUCTIVIDAD ||
-      0
-    );
-  },
-
-
-  getErrorMedio(persona) {
-    return this.toNumber(
-      persona.error ||
-      persona.ERROR_MEDIO ||
-      persona.ERROR_PCT_TOTAL ||
-      0
-    );
-  },
-
-
+  /*******************************************************************
+   * BLOQUE 5 - RIESGO
+   *******************************************************************/
   getRiesgo(persona) {
-    const riesgoManual =
-      persona.riesgoOriginal ||
-      persona.RIESGO ||
-      "";
+    const p = persona || {};
 
-    if (riesgoManual) {
-      return riesgoManual;
-    }
+    const riesgoManual = this.normalizar(p.riesgoOriginal);
 
-    const productividad = this.getProductividadMedia(persona);
-    const error = this.getErrorMedio(persona);
-    const checklist = this.getChecklistProgress(persona);
-
-    if (
-      productividad > 0 &&
-      productividad < CONFIG.SYSTEM.PRODUCTIVIDAD_MINIMA
-    ) {
+    if (riesgoManual === "alto") {
       return CONFIG.RIESGO.ALTO;
     }
 
-    if (error > CONFIG.SYSTEM.ERROR_MAXIMO) {
+    if (riesgoManual === "medio") {
+      return CONFIG.RIESGO.MEDIO;
+    }
+
+    if (riesgoManual === "bajo") {
+      return CONFIG.RIESGO.BAJO;
+    }
+
+    const productividad = this.getProductividadMedia(p);
+    const error = this.getErrorMedio(p);
+    const checklist = this.getChecklistProgress(p);
+
+    if (productividad < 70 || error > 10 || checklist < 40) {
       return CONFIG.RIESGO.ALTO;
     }
 
-    if (checklist > 0 && checklist < 50) {
+    if (productividad < 85 || error > 5 || checklist < 70) {
       return CONFIG.RIESGO.MEDIO;
     }
 
@@ -349,61 +564,24 @@ const PersonaService = {
   },
 
 
-  getFormadores() {
-    const mapa = {};
+  getColorRiesgo(persona) {
+    const riesgo = this.getRiesgo(persona);
 
-    this.getEnSeguimiento().forEach(function(persona) {
-      const tutor = persona.tutor || "Sin tutor";
-      mapa[tutor] = (mapa[tutor] || 0) + 1;
-    });
+    if (riesgo === CONFIG.RIESGO.ALTO) {
+      return CONFIG.COLORS.DANGER;
+    }
 
-    return Object.keys(mapa)
-      .map(function(nombre) {
-        return {
-          nombre: nombre,
-          personas: mapa[nombre]
-        };
-      })
-      .sort(function(a, b) {
-        return b.personas - a.personas;
-      });
+    if (riesgo === CONFIG.RIESGO.MEDIO) {
+      return CONFIG.COLORS.WARNING;
+    }
+
+    return CONFIG.COLORS.SUCCESS;
   },
 
 
-  getResumen(personas) {
-    personas = personas || this.getAll();
-
-    const total = personas.length;
-
-    const nuevas = personas.filter(function(persona) {
-      return persona.programa === CONFIG.PROGRAMAS.NUEVA;
-    }).length;
-
-    const mili = personas.filter(function(persona) {
-      return persona.programa === CONFIG.PROGRAMAS.MILI;
-    }).length;
-
-    const riesgo = personas.filter(function(persona) {
-      return PersonaService.getRiesgo(persona) === CONFIG.RIESGO.ALTO;
-    }).length;
-
-    const formadores =
-      this.getFormadores().filter(function(f) {
-        return f.nombre !== "Sin tutor";
-      }).length;
-
-    return {
-      total: total,
-      nuevas: nuevas,
-      mili: mili,
-      riesgo: riesgo,
-      formadores: formadores,
-      nuevasPct: this.pct(nuevas, total),
-      miliPct: this.pct(mili, total)
-    };
-  },
-
-
+  /*******************************************************************
+   * BLOQUE 6 - UTILIDADES
+   *******************************************************************/
   getId(persona) {
     if (!persona) return "";
 
@@ -418,13 +596,14 @@ const PersonaService = {
 
 
   pick(row, keys) {
-    for (let i = 0; i < keys.length; i++) {
-      if (
-        row[keys[i]] !== undefined &&
-        row[keys[i]] !== null &&
-        String(row[keys[i]]).trim() !== ""
-      ) {
-        return row[keys[i]];
+    const source = row || {};
+    const list = keys || [];
+
+    for (let i = 0; i < list.length; i++) {
+      const key = list[i];
+
+      if (source[key] !== undefined && source[key] !== null && String(source[key]).trim() !== "") {
+        return source[key];
       }
     }
 
@@ -432,8 +611,8 @@ const PersonaService = {
   },
 
 
-  normalizar(valor) {
-    return String(valor || "")
+  normalizar(texto) {
+    return String(texto || "")
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -442,25 +621,64 @@ const PersonaService = {
 
 
   toNumber(valor) {
-    const n = Number(
-      String(valor || "")
-        .replace("%", "")
-        .replace(",", ".")
-    );
+    if (valor === null || valor === undefined || valor === "") {
+      return 0;
+    }
 
+    if (typeof valor === "number") {
+      return isNaN(valor) ? 0 : valor;
+    }
+
+    const raw = String(valor)
+      .trim()
+      .replace(/\s+/g, "")
+      .replace("%", "");
+
+    let str = raw;
+
+    if (raw.includes(",") && raw.includes(".")) {
+      // Si hay ambos separadores, se asume que el ultimo es decimal.
+      if (raw.lastIndexOf(",") > raw.lastIndexOf(".")) {
+        str = raw.replace(/\./g, "").replace(",", ".");
+      } else {
+        str = raw.replace(/,/g, "");
+      }
+    } else if (raw.includes(",")) {
+      str = raw.replace(",", ".");
+    }
+
+    const n = Number(str);
     return isNaN(n) ? 0 : n;
   },
 
 
   pct(valor, total) {
-    if (!total) return 0;
+    if (!total) {
+      return 0;
+    }
 
     return Math.round((valor / total) * 100);
   },
 
 
+  isTrue(valor) {
+    if (valor === true) {
+      return true;
+    }
+
+    const v = String(valor || "").trim().toUpperCase();
+
+    return v === "SI" ||
+           v === "SÍ" ||
+           v === "TRUE" ||
+           v === "1" ||
+           v === "X" ||
+           v === "OK";
+  },
+
+
   startOfDay(fecha) {
-    const d = new Date(fecha);
+    const d = new Date(fecha || new Date());
     d.setHours(0, 0, 0, 0);
     return d;
   }
@@ -469,7 +687,7 @@ const PersonaService = {
 
 
 /*********************************************************************
- * MÉTODOS GLOBALES DE COMPATIBILIDAD
+ * WRAPPERS PARA GOOGLE APPS SCRIPT
  *********************************************************************/
 
 function getPersonas() {
@@ -477,11 +695,51 @@ function getPersonas() {
 }
 
 
-function getPersona(id) {
+function getPersonaById(id) {
   return PersonaService.getById(id);
 }
 
 
 function buscarPersonas(texto) {
   return PersonaService.buscar(texto);
+}
+
+
+function getPersonasHoy() {
+  return PersonaService.getHoy();
+}
+
+
+function getPersonasManana() {
+  return PersonaService.getManana();
+}
+
+
+function getPersonasSemana() {
+  return PersonaService.getEstaSemana();
+}
+
+
+function getPersonasSeguimiento() {
+  return PersonaService.getEnSeguimiento();
+}
+
+
+function getPersonasFinalizadas() {
+  return PersonaService.getFinalizados();
+}
+
+
+function getPersonasResumen() {
+  return PersonaService.getResumen();
+}
+
+
+function getPersonasStats() {
+  return PersonaService.getStats();
+}
+
+
+function getFormadores() {
+  return PersonaService.getFormadores();
 }
