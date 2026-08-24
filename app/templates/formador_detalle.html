@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Script de Chart.js para gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container" style="max-width: 1300px; margin: 0 auto; padding: 20px;">
+
+    <!-- Botón Volver -->
+    <a href="/formadores" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: #1a5c37; font-weight: 600; margin-bottom: 20px; transition: color 0.2s;">
+        <span>←</span> Volver a Formadores
+    </a>
+
+    <!-- Cabecera del Formador -->
+    <div class="panel" style="padding: 25px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; border-left: 6px solid #1a5c37;">
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div id="formador-avatar-det" class="formador-avatar" style="width: 70px; height: 70px; font-size: 1.8rem; border-radius: 50%;">?</div>
+            <div>
+                <h1 id="formador-nombre-det" style="margin: 0 0 5px 0; font-size: 1.8rem;">-</h1>
+                <p style="margin: 0; color: #7f8c8d; font-weight: 600;">Código Docente: <span id="formador-codigo-det" style="color: #2c3e50;">-</span> | ID: <span id="formador-id-det" style="color: #2c3e50;">-</span></p>
+            </div>
+        </div>
+        <div style="text-align: right;">
+            <span class="stat-label">Carga Total de Trabajo</span>
+            <p id="formador-horas-total" style="font-size: 2.2rem; font-weight: 700; color: #1a5c37; margin: 5px 0 0 0;">-h</p>
+        </div>
+    </div>
+
+    <!-- Contenido en 2 columnas -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px;" class="formador-det-grid">
+        
+        <!-- Columna Izquierda: Alumnos a Cargo -->
+        <div class="panel" style="padding: 20px; display: flex; flex-direction: column;">
+            <h2 style="font-size: 1.3rem; margin-bottom: 15px; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                <span>👥</span> Alumnos a Cargo
+            </h2>
+            <div style="flex: 1; overflow-y: auto; max-height: 500px;">
+                <table style="width: 100%; border-collapse: collapse;" id="tabla-alumnos-formador">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #e2e8f0; text-align: left;">
+                            <th style="padding: 10px; font-size: 0.85rem; color: #7f8c8d;">Estado</th>
+                            <th style="padding: 10px; font-size: 0.85rem; color: #7f8c8d;">Nombre</th>
+                            <th style="padding: 10px; font-size: 0.85rem; color: #7f8c8d;">Dpto.</th>
+                            <th style="padding: 10px; font-size: 0.85rem; color: #7f8c8d; text-align: center;">Cámara</th>
+                            <th style="padding: 10px; font-size: 0.85rem; color: #7f8c8d; text-align: center;">Aula</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-alumnos-cuerpo">
+                        <!-- Se rellena por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Gráfico de Horas y Timeline de Sesiones -->
+        <div style="display: flex; flex-direction: column; gap: 25px;">
+            
+            <!-- Gráfico de Carga -->
+            <div class="panel" style="padding: 20px;">
+                <h2 style="font-size: 1.3rem; margin-bottom: 15px; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span>📊</span> Distribución de Horas
+                </h2>
+                <div style="height: 180px; position: relative;">
+                    <canvas id="chart-formador-horas"></canvas>
+                </div>
+            </div>
+
+            <!-- Timeline de Sesiones -->
+            <div class="panel" style="padding: 20px; display: flex; flex-direction: column; flex: 1;">
+                <h2 style="font-size: 1.3rem; margin-bottom: 15px; border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                    <span>⏱️</span> Línea de Tiempo de Clases
+                </h2>
+                <div style="overflow-y: auto; max-height: 300px; flex: 1;" class="timeline-formacion" id="timeline-clases">
+                    <!-- Se rellena por JS -->
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Pasar ID a JavaScript de forma segura -->
+<span id="formador-id-holder" style="display: none;">{{ id }}</span>
+
+<script src="/static/js/formador_detalle.js"></script>
+
+{% endblock %}

@@ -1,0 +1,707 @@
+// ======================================================
+// SGF ENTERPRISE · DASHBOARD V2
+// ======================================================
+alert("DASHBOARD NUEVO");
+let dashboardData = null;
+let filtroIncorporacionesActivo = "hoy";
+
+document.addEventListener("DOMContentLoaded", () => {
+    setToday();
+    loadDashboard();
+});
+
+async function loadDashboard(forceRefresh = false) {
+    showLoadingDashboard();
+
+    try {
+        const response = await fetch(`/api/dashboard?refresh=${forceRefresh}&t=${new Date().getTime()}`);
+
+        if (!response.ok) {
+            throw new Error("Error HTTP " + response.status);
+        }
+
+        dashboardData = await response.json();
+
+        renderDashboard(dashboardData);
+        setToday();
+
+    } catch (error) {
+
+    console.error("========== ERROR DASHBOARD ==========");
+    console.error(error);
+    console.error(error.stack);
+
+    alert(error.message);
+
+}
+}
+
+function renderDashboard(data) {
+    if (!data) return;
+
+    renderKPIs(data.kpis || {}, data.pda || {});
+    renderIncorporaciones(data.incorporaciones || {});
+    renderProximasEntradas(data.proximasEntradas || []);
+    renderEstadoPrograma(data.estadoPrograma || {});
+    renderDepartamentos(data.departamentos || {});
+    renderPDA(data.pda || {});
+    renderChecklistPendiente(data.checklistPendiente || {});
+    renderProductividad(data.productividad || {});
+    renderErrores(data.productividad || {});
+    renderPersonasRiesgo(data.personasRiesgo || []);
+    renderSeguimientoIndividual(data.personasSeguimiento || []);
+    renderErroresConsecutivos(data.erroresConsecutivos || []);
+    renderFormadores(data.formadores || []);
+    renderAcciones(data.alertas || []);
+    renderTimeline(data.timeline || []);
+    renderRetrasos(data.retrasos || []);
+}
+
+
+// ======================================================
+// FECHA
+// ======================================================
+
+function setToday() {
+    const hoy = new Date();
+
+    setText("todayDate", hoy.toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+    }));
+
+    setText("lastUpdate", hoy.toLocaleTimeString("es-ES", {
+        hour: "2-digit",
+        minute: "2-digit"
+    }));
+}
+
+
+// ======================================================
+// KPIS
+// ======================================================
+
+function renderKPIs(kpis, pda) {
+    setText("kpiSeguimiento", kpis.enSeguimiento || 0);
+    setText("kpiNuevas", kpis.nuevas || 0);
+    setText("kpiMili", kpis.mili || 0);
+    setText("kpiFormadores", kpis.formadores || 0);
+    setText("kpiRiesgo", kpis.riesgoAlto || 0);
+
+    const entregadas = pda?.entregadas ?? kpis.pdaEntregadas ?? 0;
+    const total = pda?.total ?? kpis.enSeguimiento ?? 0;
+
+    setText("kpiPDA", `${entregadas}/${total}`);
+}
+
+
+// ======================================================
+// INCORPORACIONES
+// ======================================================
+
+function renderIncorporaciones(incorporaciones) {
+    const panel = byId("panelHoy");
+    if (!panel) return;
+
+    const total = incorporaciones.total || 0;
+    const personas = incorporaciones[filtroIncorporacionesActivo] || [];
+
+    panel.innerHTML = `
+        <div class="dashboardSectionHeader">
+            <div>
+                <strong>Incorporaciones</strong>
+                <span>${total} registradas en total</span>
+            </div>
+
+            <div class="filterTabs">
+                ${botonFiltro("hoy", "Hoy")}
+                ${botonFiltro("manana", "Manana")}
+            </div>
+        </div>
+
+        <div class="compactList">
+            ${renderListaPersonasChecklist(personas)}
+        </div>
+    `;
+
+    activarFiltros();
+}
+
+function botonFiltro(valor, texto) {
+    const active = filtroIncorporacionesActivo === valor ? "active" : "";
+    return `<button class="filterTab ${active}" data-filtro="${valor}">${texto}</button>`;
+}
+
+function activarFiltros() {
+    document.querySelectorAll(".filterTab").forEach(btn => {
+        btn.addEventListener("click", function () {
+            filtroIncorporacionesActivo = this.dataset.filtro;
+            renderIncorporaciones(dashboardData.incorporaciones || {});
+        });
+    });
+}
+
+function renderListaPersonasChecklist(personas) {
+    if (!personas || !personas.length) {
+        return `<p class="empty">No hay incorporaciones para este filtro.</p>`;
+    }
+
+    return personas.map(p => renderPersonaChecklistCard(p)).join("");
+}
+
+function renderPersonaChecklistCard(persona) {
+    const checklist = persona.checklist || {};
+    const completado = checklist.completado || 0;
+    const total = checklist.total || 6;
+    const porcentaje = checklist.porcentaje || 0;
+    const estado = calcularEstadoChecklist(checklist);
+
+    // Creamos la línea de información con Fecha, Hora y Departamento
+    let infoExtra = `📅 ${escapeHtml(persona.fecha || "-")}`;
+    if (persona.hora) {
+        infoExtra += ` · ⏰ ${escapeHtml(persona.hora)}`;
+    }
+    infoExtra += ` · 🏢 ${escapeHtml(persona.departamento || "-")}`;
+
+    return `
+        <div class="incorporacionCard" onclick="abrirExpediente('${escapeAttr(persona.id)}')">
+
+            <div class="incorporacionTop">
+                <div>
+                    <strong>${escapeHtml(persona.nombre || "Sin nombre")}</strong>
+                    <span style="display: block; margin-top: 4px; font-size: 0.9em; color: #555;">
+                        ${infoExtra}
+                    </span>
+                </div>
+
+                <em>${escapeHtml(persona.programa || "")}</em>
+            </div>
+
+            <div class="progressLine">
+                <div class="progressFill" style="width:${porcentaje}%"></div>
+            </div>
+
+            <div class="incorporacionStatus">
+                <span>${completado}/${total}</span>
+                <strong>${escapeHtml(estado)}</strong>
+            </div>
+
+        </div>
+    `;
+}
+
+function calcularEstadoChecklist(checklist) {
+    const pendientes = checklist.pendientes || [];
+
+    if (!pendientes.length) {
+        return "Listo para producción";
+    }
+
+    return "Esperando " + pendientes[0];
+}
+
+
+// ======================================================
+// PRÓXIMAS ENTRADAS
+// ======================================================
+
+function renderProximasEntradas(entradas) {
+    const panel = byId("panelProximas");
+    if (!panel) return;
+
+    if (!entradas.length) {
+        panel.innerHTML = `<p class="empty">No hay próximas entradas.</p>`;
+        return;
+    }
+
+    panel.innerHTML = entradas.map(dia => `
+        <div class="dayCard">
+            <div class="dayHeader">
+                <strong>${escapeHtml(dia.fecha)}</strong>
+                <span>${dia.total || 0} personas</span>
+            </div>
+
+            <div class="dayBody">
+                ${(dia.personas || []).slice(0, 5).map(p => `
+                    <div class="miniPersona" onclick="abrirExpediente('${escapeAttr(p.id)}')">
+                        ${escapeHtml(p.nombre)}
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `).join("");
+}
+
+
+// ======================================================
+// FASES Y DEPARTAMENTOS
+// ======================================================
+
+function renderEstadoPrograma(fases) {
+    const panel = byId("panelEstados");
+    if (!panel) return;
+
+    const html = Object.entries(fases).map(([nombre, data]) => {
+        const total = typeof data === "object" ? data.total : data;
+
+        return `
+            <div class="stateRow clickable" onclick="mostrarListado('${escapeAttr(nombre)}','fase')">
+                <span>${escapeHtml(nombre)}</span>
+                <strong>${total || 0}</strong>
+            </div>
+        `;
+    }).join("");
+
+    panel.innerHTML = html || `<p class="empty">Sin fases activas.</p>`;
+}
+
+function renderDepartamentos(departamentos) {
+    const panel = byId("panelDepartamentos");
+    if (!panel) return;
+
+    const html = Object.entries(departamentos).map(([nombre, data]) => {
+        const total = typeof data === "object" ? data.total : data;
+
+        return `
+            <div class="stateRow clickable" onclick="mostrarListado('${escapeAttr(nombre)}','departamento')">
+                <span>${escapeHtml(nombre)}</span>
+                <strong>${total || 0}</strong>
+            </div>
+        `;
+    }).join("");
+
+    panel.innerHTML = html || `<p class="empty">Sin departamentos activos.</p>`;
+}
+
+
+// ======================================================
+// PDA Y CHECKLIST
+// ======================================================
+
+function renderPDA(info) {
+    const panel = byId("panelPDA");
+    if (!panel) return;
+
+    if (!info || Object.keys(info).length === 0) {
+        panel.innerHTML = `<p class="empty">Pendiente conectar datos PDA.</p>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="stateRow"><span>Entregadas</span><strong>${info.entregadas || 0}</strong></div>
+        <div class="stateRow"><span>Pendientes</span><strong>${info.pendientes || 0}</strong></div>
+        <div class="stateRow"><span>Documento firmado</span><strong>${info.firmadas || 0}</strong></div>
+        <div class="stateRow"><span>Firma pendiente</span><strong>${info.sinFirmar || 0}</strong></div>
+    `;
+}
+
+function renderChecklistPendiente(checklist) {
+    const panel = byId("panelChecklist");
+    if (!panel) return;
+
+    const resumen = checklist.resumen || checklist || {};
+
+    const html = Object.entries(resumen).map(([nombre, total]) => `
+        <div class="stateRow">
+            <span>${escapeHtml(nombre)}</span>
+            <strong>${total || 0}</strong>
+        </div>
+    `).join("");
+
+    panel.innerHTML = html || `<p class="empty">No hay checklist pendientes.</p>`;
+}
+
+
+// ======================================================
+// PRODUCTIVIDAD / ERRORES
+// ======================================================
+
+function renderProductividad(productividad) {
+    const panel = byId("panelProductividad");
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="metricBig">${productividad.media || 0}%</div>
+        <p class="muted">Productividad media</p>
+        <p>${productividad.personas || 0} personas con datos</p>
+
+        <div class="fakeChart">
+            <span style="height:45%"></span>
+            <span style="height:60%"></span>
+            <span style="height:52%"></span>
+            <span style="height:70%"></span>
+            <span style="height:64%"></span>
+            <span style="height:75%"></span>
+        </div>
+    `;
+}
+
+function renderErrores(productividad) {
+    const panel = byId("panelErrores");
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="metricBig dangerText">${productividad.errorMedio || 0}%</div>
+        <p class="muted">Error medio</p>
+
+        <div class="fakeChart dangerChart">
+            <span style="height:30%"></span>
+            <span style="height:25%"></span>
+            <span style="height:38%"></span>
+            <span style="height:50%"></span>
+            <span style="height:36%"></span>
+            <span style="height:42%"></span>
+        </div>
+    `;
+}
+
+
+// ======================================================
+// RIESGO / SEGUIMIENTO / FORMADORES
+// ======================================================
+
+function renderPersonasRiesgo(personas) {
+    const panel = byId("panelRiesgo");
+    if (!panel) return;
+
+    if (!personas.length) {
+        panel.innerHTML = `<p class="empty">No hay personas en riesgo.</p>`;
+        return;
+    }
+
+    panel.innerHTML = personas.slice(0, 8).map(p => `
+        <div class="listItem clickable" onclick="abrirExpediente('${escapeAttr(p.id)}')">
+            <div>
+                <strong>${escapeHtml(p.nombre)}</strong>
+                <span>${escapeHtml(p.departamento || "")}</span>
+            </div>
+            <em class="badge dangerBadge">${escapeHtml(p.riesgo || "Alto")}</em>
+        </div>
+    `).join("");
+}
+
+function renderSeguimientoIndividual(personas) {
+    const panel = byId("panelSeguimientoIndividual");
+    if (!panel) return;
+
+    if (!personas.length) {
+        panel.innerHTML = `<p class="empty">Sin personas activas.</p>`;
+        return;
+    }
+
+    panel.innerHTML = personas.slice(0, 10).map(p => `
+        <div class="listItem clickable" onclick="abrirExpediente('${escapeAttr(p.id)}')">
+            <div>
+                <strong>${escapeHtml(p.nombre)}</strong>
+                <span>
+                    ${escapeHtml(p.departamento || "")}
+                    ${p.dias ? " · " + escapeHtml(p.dias) + " días" : ""}
+                </span>
+            </div>
+            <em>${escapeHtml(p.estado || "")}</em>
+        </div>
+    `).join("");
+}
+
+function renderFormadores(formadores) {
+    const panel = byId("panelFormadores");
+    if (!panel) return;
+
+    if (!formadores.length) {
+        panel.innerHTML = `<p class="empty">Sin formadores asignados.</p>`;
+        return;
+    }
+
+    panel.innerHTML = formadores.map(f => `
+        <div class="stateRow">
+            <span>${escapeHtml(f.nombre)}</span>
+            <strong>${f.total || 0}</strong>
+        </div>
+    `).join("");
+}
+
+
+// ======================================================
+// ACCIONES Y TIMELINE
+// ======================================================
+
+function renderAcciones(alertas) {
+    const panel = byId("panelAcciones");
+    if (!panel) return;
+
+    if (!alertas.length) {
+        panel.innerHTML = `<p class="empty">Sin próximas acciones.</p>`;
+        return;
+    }
+
+    panel.innerHTML = alertas.slice(0, 8).map(a => `
+        <div class="listItem clickable" onclick="abrirExpediente('${escapeAttr(a.persona?.id || "")}')">
+            <div>
+                <strong>${escapeHtml(a.tipo || "Acción")}</strong>
+                <span>${escapeHtml(a.mensaje || "")}</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderTimeline(items) {
+    const panel = byId("panelTimeline");
+    if (!panel) return;
+
+    if (!items.length) {
+        panel.innerHTML = `<p class="empty">Sin actividad reciente.</p>`;
+        return;
+    }
+
+    panel.innerHTML = items.slice(0, 8).map(item => `
+        <div class="listItem">
+            <div>
+                <strong>${escapeHtml(item.fecha || item.FECHA || "")}</strong>
+                <span>${escapeHtml(item.descripcion || item.DESCRIPCION || item.mensaje || "")}</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+
+function renderErroresConsecutivos(personas) {
+    const panel = byId("panelErroresConsecutivos");
+    if (!panel) return;
+
+    if (!personas || !personas.length) {
+        panel.innerHTML = `<p class="empty" style="padding: 15px; margin: 0; font-size: 0.9em; border: none; background: transparent; color: #8a9b91;">No hay personas con errores recurrentes en los últimos 3 días de trabajo.</p>`;
+        return;
+    }
+
+    panel.innerHTML = personas.map(p => `
+        <div class="listItem clickable" onclick="abrirExpediente('${escapeAttr(p.id)}')">
+            <div style="flex: 1; min-width: 0; padding-right: 8px;">
+                <strong style="display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; color: #173D2D;">${escapeHtml(p.nombre)}</strong>
+                <span style="font-size: 0.8em; color: #6b7a72; display: block; margin-top: 2px;">
+                    ${escapeHtml(p.departamento || "")} · Tutor: <strong>${escapeHtml(p.tutor || "")}</strong>
+                </span>
+            </div>
+            <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 4px;">
+                <span class="badge dangerBadge" style="font-size: 0.72em; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid #fed7d7;">3 días > 5 err</span>
+                <span style="font-size: 0.75em; color: #c0392b; font-weight: 600;">${escapeHtml(p.dias_detalles)}</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+
+// ======================================================
+// LISTADOS
+// ======================================================
+
+function mostrarListado(nombre, tipo) {
+    console.log("Listado:", tipo, nombre);
+}
+
+
+// ======================================================
+// NAVEGACIÓN
+// ======================================================
+
+function abrirExpediente(id) {
+    if (!id) return;
+    window.location.href = "/expediente/" + id;
+}
+
+
+// ======================================================
+// LOADING
+// ======================================================
+
+function showLoadingDashboard() {
+    [
+        "panelHoy",
+        "panelProximas",
+        "panelEstados",
+        "panelDepartamentos",
+        "panelPDA",
+        "panelChecklist",
+        "panelProductividad",
+        "panelErrores",
+        "panelRiesgo",
+        "panelSeguimientoIndividual",
+        "panelErroresConsecutivos",
+        "panelFormadores",
+        "panelAcciones",
+        "panelTimeline"
+    ].forEach(id => {
+        const el = byId(id);
+        if (el) el.innerHTML = `<p class="empty">Cargando...</p>`;
+    });
+}
+
+
+// ======================================================
+// UTILIDADES
+// ======================================================
+
+function byId(id){
+    return document.getElementById(id);
+}
+
+function setText(id, value) {
+    const el = byId(id);
+    if (el) el.textContent = value;
+}
+
+function escapeHtml(value) {
+    return String(value || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+    return String(value || "")
+        .replaceAll("'", "\\'")
+        .replaceAll('"', "&quot;");
+}
+
+
+// ======================================================
+// ALERTAS DE IMPUNTUALIDAD (RETRASOS)
+// ======================================================
+
+window.currentRetrasosData = [];
+
+function renderRetrasos(retrasos) {
+    window.currentRetrasosData = retrasos;
+    const bannerContainer = document.getElementById("contenedor-banner-retrasos");
+    if (!bannerContainer) return;
+
+    if (!retrasos || retrasos.length === 0) {
+        bannerContainer.style.display = "none";
+        return;
+    }
+
+    const count = retrasos.length;
+    bannerContainer.innerHTML = `
+        <div class="tardiness-banner" onclick="abrirModalRetrasos()">
+            <div class="tardiness-banner-content">
+                <span class="tardiness-banner-icon">⏰</span>
+                <div>
+                    <strong>Alerta de Impuntualidad:</strong> Se han detectado ${count} personas con 3 o más entradas retrasadas en los últimos 14 días.
+                </div>
+            </div>
+            <span class="tardiness-banner-action">Ver Detalles ⚡</span>
+        </div>
+    `;
+    bannerContainer.style.display = "block";
+}
+
+function abrirModalRetrasos() {
+    const modal = document.getElementById("modal-retrasos");
+    const modalBody = document.getElementById("modal-retrasos-body");
+    if (!modal || !modalBody) return;
+
+    const retrasos = window.currentRetrasosData || [];
+    if (retrasos.length === 0) return;
+
+    let html = "";
+    retrasos.forEach(r => {
+        let diasHtml = "";
+        r.dias.forEach(d => {
+            diasHtml += `
+                <div class="late-day-item">
+                    <span>📅 <strong>${d.fecha}</strong></span>
+                    <span>Hora entrada: <strong style="color:#c53030;">${d.hora_fichaje}</strong></span>
+                    <span>Esperada: <strong>${d.hora_esperada}</strong></span>
+                    <span style="background: #fff5f5; color: #c53030; padding: 2px 6px; border-radius: 4px; font-weight: bold;">+${d.minutos_retraso} min</span>
+                </div>
+            `;
+        });
+
+        html += `
+            <div class="late-worker-card">
+                <div class="late-worker-header">
+                    <span class="late-worker-name">👤 <a href="/expediente/${r.id}" style="color: #173D2D; text-decoration: underline; font-weight: bold;">${escapeHtml(r.nombre)}</a> (${escapeHtml(r.departamento)})</span>
+                    <span class="late-worker-badge">${r.retrasos_count} retrasos</span>
+                </div>
+                <div class="late-days-list">
+                    ${diasHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    modalBody.innerHTML = html;
+    modal.style.display = "flex";
+}
+
+function cerrarModalRetrasos() {
+    const modal = document.getElementById("modal-retrasos");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}
+
+function abrirModalRiesgo() {
+    const modal = document.getElementById("modal-riesgo");
+    const modalBody = document.getElementById("modal-riesgo-body");
+    if (!modal || !modalBody) return;
+
+    const personasRiesgo = (dashboardData && dashboardData.personasRiesgo) || [];
+    if (personasRiesgo.length === 0) {
+        modalBody.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: #718096;">
+                <span style="font-size: 3em;">🎉</span>
+                <p style="margin-top: 15px; font-weight: bold;">No hay ninguna persona en riesgo alto actualmente.</p>
+            </div>
+        `;
+        modal.style.display = "flex";
+        return;
+    }
+
+    let html = "";
+    personasRiesgo.forEach(p => {
+        let checklistPending = false;
+        if (p.checklist && p.checklist.pendientes && p.checklist.pendientes.length > 0) {
+            checklistPending = true;
+        } else if (p.checklist && typeof p.checklist.porcentaje === 'number' && p.checklist.porcentaje < 100) {
+            checklistPending = true;
+        }
+
+        let alertasHtml = "";
+        if (checklistPending) {
+            alertasHtml += `<span class="risk-worker-badge" style="background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 5px; font-weight: bold;">📋 Checklist incompleto</span>`;
+        }
+        if (!p.tutor) {
+            alertasHtml += `<span class="risk-worker-badge" style="background: #fffaf0; color: #dd6b20; border: 1px solid #fbd38d; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; margin-right: 5px; font-weight: bold;">👤 Sin tutor</span>`;
+        }
+        
+        html += `
+            <div class="late-worker-card" style="border-left: 5px solid #e53e3e;">
+                <div class="late-worker-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; padding-bottom: 10px; margin-bottom: 10px;">
+                    <span class="late-worker-name" style="font-size: 1.05em; font-weight: 700; color: #2d3748;">
+                        👤 <a href="/expediente/${p.id}" style="color: #173D2D; text-decoration: underline; font-weight: bold;">${escapeHtml(p.nombre)}</a>
+                    </span>
+                    <span class="late-worker-badge" style="background: #fff5f5; color: #e53e3e; border: 1px solid #fed7d7; font-weight: 800; font-size: 0.78em; padding: 4px 10px; border-radius: 8px; letter-spacing: 0.5px;">Riesgo Alto</span>
+                </div>
+                <div style="font-size: 0.88em; color: #4a5568; display: flex; flex-direction: column; gap: 6px;">
+                    <div><strong>Departamento:</strong> ${escapeHtml(p.departamento || "No asignado")}</div>
+                    <div><strong>Estado actual:</strong> ${escapeHtml(p.estado || "No definido")}</div>
+                    <div><strong>Días en seguimiento:</strong> ${p.dias || "0"} días</div>
+                    ${alertasHtml ? `<div style="margin-top: 8px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap;"><strong>Alertas:</strong> ${alertasHtml}</div>` : ""}
+                </div>
+            </div>
+        `;
+    });
+
+    modalBody.innerHTML = html;
+    modal.style.display = "flex";
+}
+
+function cerrarModalRiesgo() {
+    const modal = document.getElementById("modal-riesgo");
+    if (modal) {
+        modal.style.display = "none";
+    }
+}

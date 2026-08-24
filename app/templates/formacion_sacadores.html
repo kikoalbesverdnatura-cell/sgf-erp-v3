@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- FullCalendar CDN -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+
+<link rel="stylesheet" href="/static/css/formacion_sacadores.css">
+
+<style>
+    /* Estilos personalizados para FullCalendar en Formación Sacadores */
+    :root {
+        --fc-border-color: #edf2f7;
+        --fc-daygrid-event-dot-width: 8px;
+        --fc-button-bg-color: #173D2D;
+        --fc-button-border-color: #173D2D;
+        --fc-button-hover-bg-color: #255340;
+        --fc-button-hover-border-color: #255340;
+        --fc-button-active-bg-color: #112d21;
+        --fc-button-active-border-color: #112d21;
+    }
+    .fc {
+        background: #fff;
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid #edf2f7;
+    }
+    .fc-col-header-cell {
+        background: #f7fafc;
+        padding: 8px 0 !important;
+        color: #173D2D !important;
+        font-weight: 700 !important;
+    }
+    .fc-event {
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 6px;
+        font-size: 0.82em;
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    }
+    .event-agenda-pendiente {
+        background-color: #fff9db !important;
+        color: #f59f00 !important;
+        border-left: 4px solid #f59f00 !important;
+    }
+    .event-agenda-finalizada {
+        background-color: #ebfbee !important;
+        color: #2b8a3e !important;
+        border-left: 4px solid #2b8a3e !important;
+    }
+    .event-agenda-incorporacion {
+        background-color: #f3e8ff !important;
+        color: #6b21a8 !important;
+        border-left: 4px solid #8b5cf6 !important;
+    }
+    .event-agenda-revision {
+        background-color: #ffe8cc !important;
+        color: #d9480f !important;
+        border-left: 4px solid #f76707 !important;
+    }
+    
+    /* Candidatos Draggables */
+    .candidato-draggable-item {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px;
+        cursor: grab;
+        font-size: 0.85em;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .candidato-draggable-item:hover {
+        border-color: #173D2D;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        transform: translateY(-1px);
+    }
+    .candidato-draggable-item:active {
+        cursor: grabbing;
+    }
+
+    /* Modal Styling */
+    .modalOverlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modalContent {
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+</style>
+
+<div class="pageHeader">
+    <div>
+        <h1>🗓️ Planificación Formadores</h1>
+        <p>Agenda y planificación de eventos formativos. Arrastra candidatos para asignarlos a un evento.</p>
+    </div>
+    <div class="headerActions">
+        <a href="https://docs.google.com/spreadsheets/d/19V0hASsS5P34bf1kR893b_uE1bZ2RSePT-QZlO8z2-k/edit?gid=0#gid=0" target="_blank" class="primaryButton" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+            🟢 Ver Google Sheet
+        </a>
+    </div>
+</div>
+
+
+
+<!-- PANEL PRINCIPAL DE AGENDA Y CALENDARIO -->
+<div id="panel-tab-agenda" style="display: block; margin-top: 20px;">
+    
+    <!-- Pestañas de Filtro por Tutor -->
+    <div class="tabs-container" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+        <button class="tab-button" onclick="cambiarFiltroTutor('todos', this)" style="padding: 8px 16px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; background: #173D2D; color: white; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-size: 0.88em;">
+            📅 Calendario General
+        </button>
+        <button class="tab-button" onclick="cambiarFiltroTutor('VICENTE LLOPIS CORDOBA', this)" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #edf2f7; font-weight: bold; cursor: pointer; background: #fff; color: #2d3748; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); font-size: 0.88em;">
+            👨‍🏫 Calendario Vicente
+        </button>
+        <button class="tab-button" onclick="cambiarFiltroTutor('EUGENIO COLOMER GIRBÉS', this)" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #edf2f7; font-weight: bold; cursor: pointer; background: #fff; color: #2d3748; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); font-size: 0.88em;">
+            👨‍🏫 Calendario Eugenio
+        </button>
+        <button class="tab-button" onclick="cambiarFiltroTutor('FRANCISCO ALBERT ESCUDERO', this)" style="padding: 8px 16px; border-radius: 8px; border: 1px solid #edf2f7; font-weight: bold; cursor: pointer; background: #fff; color: #2d3748; transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.02); font-size: 0.88em;">
+            👨‍🏫 Calendario Kiko
+        </button>
+    </div>
+
+    <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap;">
+        
+        <!-- Calendario FullCalendar -->
+        <div style="flex: 1; min-width: 500px; background: white; border: 1px solid #edf2f7; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.01);">
+            <div id="agenda-calendario"></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE KPI: PERSONAS FORMADAS -->
+<div id="modal-kpi-formadas" class="modalOverlay">
+    <div class="modalContent" style="width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+        <div class="modalHeader" style="background:#173D2D; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1.15em; font-weight:700;">🎓 Personas Formadas</h3>
+            <button onclick="cerrarModalKpi('formadas')" style="background:transparent; border:none; color:white; font-size:1.5em; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <div class="modalBody" id="modal-kpi-formadas-body" style="padding:20px; overflow-y:auto; flex-grow:1; background:#f7fafc;">
+            <!-- Poblado dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE KPI: SACADO H -->
+<div id="modal-kpi-sacado-h" class="modalOverlay">
+    <div class="modalContent" style="width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+        <div class="modalHeader" style="background:#173D2D; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1.15em; font-weight:700;">👥 Personal de Sacado H</h3>
+            <button onclick="cerrarModalKpi('sacado_h')" style="background:transparent; border:none; color:white; font-size:1.5em; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <div class="modalBody" id="modal-kpi-sacado-h-body" style="padding:20px; overflow-y:auto; flex-grow:1; background:#f7fafc;">
+            <!-- Poblado dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE KPI: OTROS DEPARTAMENTOS -->
+<div id="modal-kpi-otros" class="modalOverlay">
+    <div class="modalContent" style="width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+        <div class="modalHeader" style="background:#173D2D; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1.15em; font-weight:700;">🏢 Otros Departamentos</h3>
+            <button onclick="cerrarModalKpi('otros')" style="background:transparent; border:none; color:white; font-size:1.5em; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <div class="modalBody" id="modal-kpi-otros-body" style="padding:20px; overflow-y:auto; flex-grow:1; background:#f7fafc;">
+            <!-- Poblado dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE CREAR/EDITAR EVENTO DE AGENDA -->
+<div id="modal-agenda-evento" class="modalOverlay">
+    <div class="modalContent" style="width: 100%; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); display: flex; flex-direction: column;">
+        <div class="modalHeader" style="background:#173D2D; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+            <h3 id="modal-agenda-titulo" style="margin:0; font-size:1.15em; font-weight:700;">Programar Evento Formativo</h3>
+            <button onclick="cerrarModalAgenda()" style="background:transparent; border:none; color:white; font-size:1.5em; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+        <form id="form-agenda-evento" onsubmit="guardarAgendaEvento(event)">
+            <input type="hidden" id="form-agenda-id">
+            <div class="modalBody" style="padding:20px; display:flex; flex-direction:column; gap:12px; background:#f7fafc;">
+                
+                <!-- Sección para integrantes ya inscritos (Solo visible en edición) -->
+                <div id="form-agenda-integrantes-seccion" style="display:none; flex-direction:column; gap:4px; margin-bottom:4px;">
+                    <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Alumnos Inscritos</label>
+                    <div id="form-agenda-integrantes-lista" style="display:flex; flex-direction:column; gap:4px; max-height:120px; overflow-y:auto; background:#edf2f7; padding:8px; border-radius:6px; border:1px solid #cbd5e0; box-sizing: border-box;">
+                        <!-- Poblado dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Sección para añadir/inscribir nuevos alumnos con multiselección (Visible para Crear y Editar) -->
+                <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:8px;">
+                    <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Inscribir Alumnos (Multiselección)</label>
+                    <input type="text" id="form-agenda-buscar-nuevos" placeholder="🔍 Filtrar alumnos por nombre o ID..." oninput="filtrarNuevosAlumnosModal()" style="width:100%; padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; font-size:0.9em; box-sizing:border-box; margin-bottom:6px; background: white;">
+                    
+                    <div id="form-agenda-nuevos-lista" style="display:flex; flex-direction:column; gap:6px; max-height:140px; overflow-y:auto; background:white; padding:8px; border-radius:6px; border:1px solid #cbd5e0; box-sizing:border-box;">
+                        <!-- Checkboxes de candidatos cargados dinámicamente -->
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Fecha</label>
+                        <input type="date" id="form-agenda-fecha" required style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748;">
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Hora Inicio</label>
+                        <input type="time" id="form-agenda-hora" required style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748;">
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Hora Fin</label>
+                        <input type="time" id="form-agenda-hora-fin" required style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748;">
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:12px;">
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Título del Evento</label>
+                        <input type="text" id="form-agenda-tipo" required placeholder="Ej: Aula S. 1" style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748; box-sizing: border-box; width: 100%;">
+                    </div>
+                    <div style="flex:1; display:flex; flex-direction:column; gap:4px;">
+                        <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Lugar</label>
+                        <input type="text" id="form-agenda-aula" required placeholder="Ej: Aula 3" style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748; box-sizing: border-box; width: 100%;">
+                    </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Formador / Tutor</label>
+                    <select id="form-agenda-formador" required style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748;">
+                        <option value="">Selecciona un formador...</option>
+                        <!-- Inyectado dinámicamente -->
+                    </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                    <label style="font-weight:bold; font-size:0.85em; color:#4a5568;">Estado General</label>
+                    <select id="form-agenda-estado" required style="padding:8px 12px; border:1px solid #cbd5e0; border-radius:6px; background:white; color:#2d3748;">
+                        <option value="Pendiente">⏳ Pendiente</option>
+                        <option value="Finalizada">✅ Finalizada</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modalFooter" style="padding:15px 20px; background:white; border-top:1px solid #edf2f7; display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" onclick="cerrarModalAgenda()" style="padding:8px 16px; border:1px solid #cbd5e0; border-radius:6px; cursor:pointer; background:white; color:#4a5568; font-weight:600;">Cancelar</button>
+                <button type="submit" style="padding:8px 16px; background:#173D2D; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Guardar Evento</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Script principal -->
+<script src="/static/js/formacion_sacadores.js?v=36"></script>
+
+{% endblock %}

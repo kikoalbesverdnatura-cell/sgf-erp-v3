@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="/static/css/analitica.css">
+
+<div class="pageHeader">
+
+    <div>
+
+        <h1>📊 Analítica</h1>
+
+        <p>
+            Indicadores, productividad, calidad, evolución e inteligencia del Departamento de Formación.
+        </p>
+
+    </div>
+
+    <div class="headerActions">
+
+        <button class="primaryButton">
+
+            🔄 Actualizar indicadores
+
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- KPIs -->
+
+<section class="kpiGrid">
+
+    <div class="kpiCard">
+
+        <span>👥 Personas activas</span>
+
+        <h2 id="kpiActivos">0</h2>
+
+    </div>
+
+    <div class="kpiCard">
+
+        <span>📈 Productividad media</span>
+
+        <h2 id="kpiProductividad">0%</h2>
+
+    </div>
+
+    <div class="kpiCard">
+
+        <span>⚠ Error medio</span>
+
+        <h2 id="kpiErrores">0%</h2>
+
+    </div>
+
+    <div class="kpiCard">
+
+        <span>🎯 Riesgo alto</span>
+
+        <h2 id="kpiRiesgo">0</h2>
+
+    </div>
+
+</section>
+
+
+
+<div class="grid-expediente">
+
+    <!-- PRODUCTIVIDAD -->
+
+    <div class="panel">
+
+        <h2>📈 Productividad</h2>
+
+        <div id="graficoProductividad">
+
+            Próximamente gráfico.
+
+        </div>
+
+    </div>
+
+
+    <!-- ERRORES -->
+
+    <div class="panel">
+
+        <h2>📉 Errores</h2>
+
+        <div id="graficoErrores">
+
+            Próximamente gráfico.
+
+        </div>
+
+    </div>
+
+
+    <!-- EVOLUCIÓN -->
+
+    <div class="panel">
+
+        <h2>📅 Evolución semanal</h2>
+
+        <div id="graficoSemana">
+
+            Próximamente gráfico.
+
+        </div>
+
+    </div>
+
+
+    <!-- IA -->
+
+    <div class="panel">
+
+        <h2>🤖 Inteligencia Artificial</h2>
+
+        <div id="panelIA">
+
+            <ul>
+
+                <li>No existen alertas.</li>
+
+            </ul>
+
+        </div>
+
+    </div>
+
+
+    <!-- TOP PERSONAS -->
+
+    <div class="panel">
+
+        <h2>🏆 Ranking productividad</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Trabajador</th>
+
+                    <th>%</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                <tr>
+
+                    <td colspan="2" style="text-align:center;padding:35px;">
+
+                        Sin datos.
+
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- RIESGO -->
+
+    <div class="panel">
+
+        <h2>🚨 Personas en riesgo</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>Trabajador</th>
+
+                    <th>Estado</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                <tr>
+
+                    <td colspan="2" style="text-align:center;padding:35px;">
+
+                        Sin incidencias.
+
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <!-- COMPARATIVAS -->
+
+    <div class="panel panel-full">
+
+        <h2>📊 Comparativas</h2>
+
+        <div id="comparativas">
+
+            <p>
+
+                Comparativa entre departamentos, formadores,
+                productividad, errores y evolución histórica.
+
+            </p>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

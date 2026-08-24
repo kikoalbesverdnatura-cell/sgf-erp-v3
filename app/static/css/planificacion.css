@@ -1,0 +1,294 @@
+.pageHeader{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:30px;
+
+}
+
+.pageHeader h1{
+
+    font-size:38px;
+
+    color:#173D2D;
+
+    margin-bottom:6px;
+
+}
+
+.pageHeader p{
+
+    color:#666;
+
+}
+
+.primaryButton{
+
+    background:#173D2D;
+
+    color:white;
+
+    border:none;
+
+    padding:12px 22px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    font-weight:600;
+
+}
+
+.primaryButton:hover{
+
+    background:#255340;
+
+}
+
+.empty{
+
+    padding:40px;
+
+    text-align:center;
+
+    color:#888;
+
+}
+
+/* Kanban Board & Drag-and-drop Visuals */
+.personaCard {
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    user-select: none;
+}
+
+.personaCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08) !important;
+    border-color: #173D2D !important;
+}
+
+.personaCard:active {
+    cursor: grabbing;
+}
+
+.dragGhost {
+    opacity: 0.4;
+    background-color: #edf4ef !important;
+    border: 2px dashed #173D2D !important;
+}
+
+.dragChosen {
+    background-color: #f5faf7 !important;
+}
+
+.dragging {
+    opacity: 0.9;
+    transform: rotate(2deg);
+}
+
+.badge.rojo {
+    background: #ffe8e5;
+    color: #d84b3f;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+}
+
+/* ======================================================
+   NUEVOS ESTILOS SPRINT 3: DRAWER Y RECOMENDACIONES
+   ====================================================== */
+
+/* Drawer deslizable lateral */
+.drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 460px;
+    height: 100%;
+    background: #ffffff;
+    box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.drawer.open {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    padding: 20px 24px;
+    background: #173D2D;
+    color: #ffffff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drawer-header h3 {
+    margin: 0;
+    font-size: 1.25em;
+    font-weight: 700;
+}
+
+.drawer-close {
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 1.5em;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.drawer-close:hover {
+    opacity: 1;
+}
+
+.drawer-content {
+    padding: 24px;
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(23, 61, 45, 0.3);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.drawer-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Badges de notas */
+.note-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 0.82em;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.note-badge.verde {
+    background: #ebf7ee;
+    color: #27ae60;
+    border: 1px solid #c3e6cb;
+}
+
+.note-badge.amarillo {
+    background: #fffcf0;
+    color: #d6a100;
+    border: 1px solid #f7edd0;
+}
+
+.note-badge.rojo {
+    background: #fdf2f2;
+    color: #c0392b;
+    border: 1px solid #f5c6cb;
+}
+
+.note-badge.gris {
+    background: #f8f9fa;
+    color: #718096;
+    border: 1px solid #e2e8f0;
+}
+
+/* Iconos de hitos */
+.milestones-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.milestone-icon {
+    font-size: 0.85em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #f4f6f8;
+    color: #a0aec0;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: bold;
+    border: 1px solid #eef0f2;
+}
+
+.milestone-icon.active {
+    background: #edf4ef;
+    color: #173D2D;
+    border-color: #dbe5df;
+}
+
+/* Alerta de retroceso con pulso */
+.retro-alert-pill {
+    background: #ffebe9;
+    color: #d73a49;
+    border: 1px solid #ffc1c0;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.75em;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    animation: alertPulse 2s infinite;
+}
+
+@keyframes alertPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.03); box-shadow: 0 0 8px rgba(215, 58, 73, 0.2); }
+    100% { transform: scale(1); }
+}
+
+/* Recomendaciones Sidebar */
+.rec-card {
+    background: #ffffff;
+    border: 1px solid #edf2ee;
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.rec-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+}
+
+.rec-card.urgente {
+    border-left: 4px solid #c0392b;
+}
+
+.rec-card.aviso {
+    border-left: 4px solid #d6a100;
+}
+
+.rec-card.sugerencia {
+    border-left: 4px solid #27ae60;
+}

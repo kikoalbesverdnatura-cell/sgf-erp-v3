@@ -1,0 +1,49 @@
+.pageHeader{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:30px;
+
+}
+
+.pageHeader h1{
+
+    font-size:40px;
+
+    color:#173D2D;
+
+}
+
+.pageHeader p{
+
+    color:#666;
+
+}
+
+.primaryButton{
+
+    background:#173D2D;
+
+    color:white;
+
+    border:none;
+
+    padding:12px 22px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    font-weight:600;
+
+}
+
+.primaryButton:hover{
+
+    background:#255340;
+
+}

@@ -1,0 +1,514 @@
+/* ===========================
+   RESET
+=========================== */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+
+    font-family:Segoe UI,Arial,sans-serif;
+
+    background:#f4f7f9;
+
+    color:#222;
+
+}
+
+/* ===========================
+   LAYOUT
+=========================== */
+
+.layout{
+
+    display:flex;
+
+    min-height:100vh;
+
+}
+
+/* ===========================
+   SIDEBAR
+=========================== */
+
+.sidebar{
+
+    width:250px;
+
+    background:#173D2D;
+
+    color:white;
+
+    padding:30px 20px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    position:sticky;
+
+    top:0;
+
+    height:100vh;
+
+    overflow-y:auto;
+
+}
+
+.logo{
+
+    margin-bottom:40px;
+
+}
+
+.logo h2{
+
+    font-size:30px;
+
+    margin-bottom:5px;
+
+}
+
+.logo span{
+
+    color:#bfcfc7;
+
+    font-size:14px;
+
+}
+
+/* ===========================
+   MENÚ
+=========================== */
+
+.sidebar nav{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:10px;
+
+}
+
+.sidebar nav a{
+
+    color:white;
+
+    text-decoration:none;
+
+    padding:14px 18px;
+
+    border-radius:12px;
+
+    transition:.25s;
+
+    font-weight:600;
+
+}
+
+.sidebar nav a:hover{
+
+    background:#255340;
+
+}
+
+/* ===========================
+   CONTENIDO
+=========================== */
+
+.content{
+
+    flex:1;
+
+    padding:35px;
+
+    overflow:auto;
+
+}
+
+/* ===========================
+   TITULOS
+=========================== */
+
+h1{
+
+    color:#173D2D;
+
+    margin-bottom:20px;
+
+}
+
+h2{
+
+    color:#173D2D;
+
+}
+
+/* ===========================
+   TABLAS
+=========================== */
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+    background:white;
+
+    border-radius:15px;
+
+    overflow:hidden;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+
+}
+
+thead{
+
+    background:#173D2D;
+
+    color:white;
+
+}
+
+th{
+
+    text-align:left;
+
+    padding:16px;
+
+}
+
+td{
+
+    padding:14px 16px;
+
+    border-bottom:1px solid #eee;
+
+}
+
+tbody tr:hover{
+
+    background:#f4f7f9;
+
+    cursor:pointer;
+
+}
+
+/* ===========================
+   BUSCADOR
+=========================== */
+
+.toolbar{
+
+    margin:20px 0;
+
+}
+
+.toolbar input{
+
+    width:350px;
+
+    padding:12px 18px;
+
+    border:1px solid #ddd;
+
+    border-radius:12px;
+
+    font-size:15px;
+
+}
+
+.toolbar select{
+
+    padding:12px 18px;
+
+    border:1px solid #ddd;
+
+    border-radius:12px;
+
+    font-size:15px;
+
+    margin-left:10px;
+
+    cursor:pointer;
+
+    background:white;
+
+}
+
+/* =====================================================
+   MODO TABLETA (SIMULADOR DE TABLET HORIZONTAL - 1024px)
+   ===================================================== */
+body.mode-tablet {
+    display: flex;
+    justify-content: center;
+    background: #e2e8f0;
+}
+
+body.mode-tablet .layout {
+    width: 1024px;
+    max-width: 100vw;
+    background: #f4f7f9;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    border-left: 1px solid #dbe5df;
+    border-right: 1px solid #dbe5df;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column; /* Barra de navegación arriba, contenido abajo */
+}
+
+body.mode-tablet .sidebar {
+    width: 100% !important;
+    padding: 15px 25px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 0 !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 1000 !important;
+    height: auto !important;
+    overflow-y: visible !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+}
+
+body.mode-tablet .logo {
+    margin-bottom: 0 !important;
+}
+
+body.mode-tablet .logo h2 {
+    font-size: 20px !important;
+}
+
+body.mode-tablet .logo span {
+    display: none !important; /* Ocultar subtítulo para ahorrar espacio */
+}
+
+body.mode-tablet .sidebar nav {
+    flex-direction: row !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+}
+
+body.mode-tablet .sidebar nav a {
+    padding: 8px 12px !important;
+    font-size: 0.85em !important;
+}
+
+body.mode-tablet .view-selector {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+}
+
+body.mode-tablet .content {
+    padding: 24px !important;
+}
+
+body.mode-tablet .kpiGrid {
+    grid-template-columns: repeat(4, 1fr) !important;
+}
+
+body.mode-tablet .dashboardGrid {
+    grid-template-columns: repeat(2, 1fr) !important;
+}
+
+body.mode-tablet .knowledgeGrid {
+    grid-template-columns: repeat(4, 1fr) !important;
+}
+
+body.mode-tablet #tablero-equipos {
+    grid-template-columns: repeat(4, minmax(180px, 1fr)) !important;
+}
+
+
+/* =====================================================
+   MODO OSCURO (DARK MODE) OVERRIDES (Sprint 2)
+   ===================================================== */
+
+/* 1. Fondo General y Contenedores */
+body.dark-mode {
+    background-color: #0b0f19 !important; /* Slate 950 */
+    color: #cbd5e1 !important; /* Slate 300 */
+}
+
+body.dark-mode .content {
+    background-color: #0b0f19 !important;
+}
+
+/* 2. Paneles Blancos */
+body.dark-mode .panel,
+body.dark-mode .tardiness-banner,
+body.dark-mode .modal-content {
+    background-color: #1e293b !important; /* Slate 800 */
+    border-color: #334155 !important; /* Slate 700 */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+    color: #cbd5e1 !important;
+}
+
+body.dark-mode .tardiness-banner {
+    border: 1px solid #c0392b !important;
+    background: #2d1818 !important;
+}
+
+/* 3. Textos y Cabeceras */
+body.dark-mode h1,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode h4,
+body.dark-mode strong {
+    color: #f8fafc !important; /* Slate 50 */
+}
+
+body.dark-mode p,
+body.dark-mode span,
+body.dark-mode label,
+body.dark-mode td {
+    color: #94a3b8 !important; /* Slate 400 */
+}
+
+body.dark-mode .obs-author,
+body.dark-mode td strong,
+body.dark-mode #nombrePersona {
+    color: #f8fafc !important;
+}
+
+/* 4. Tablas */
+body.dark-mode table {
+    border-color: #334155 !important;
+}
+
+body.dark-mode thead tr {
+    background: #0f172a !important; /* Slate 900 */
+    border-bottom: 2px solid #334155 !important;
+}
+
+body.dark-mode th {
+    color: #e2e8f0 !important; /* Slate 200 */
+}
+
+body.dark-mode tr {
+    border-bottom: 1px solid #1e293b !important;
+}
+
+body.dark-mode .fila-persona:hover,
+body.dark-mode tr:hover {
+    background-color: #1e293b !important;
+}
+
+/* Excepciones de filas de color en la lista general de personas */
+body.dark-mode .fila-persona.riesgo-alto {
+    background-color: #451a1a !important; /* Soft dark red */
+}
+body.dark-mode .fila-persona.riesgo-alto:hover {
+    background-color: #5c2424 !important;
+}
+
+body.dark-mode .fila-persona.chaleco-morado {
+    background-color: #2e1065 !important; /* Soft dark purple */
+}
+body.dark-mode .fila-persona.chaleco-morado:hover {
+    background-color: #3b0764 !important;
+}
+
+body.dark-mode .fila-persona.chaleco-riesgo-alto {
+    background-image: linear-gradient(90deg, #2e1065 0%, #451a1a 100%) !important;
+}
+body.dark-mode .fila-persona.chaleco-riesgo-alto:hover {
+    background-image: linear-gradient(90deg, #3b0764 0%, #5c2424 100%) !important;
+}
+
+/* 5. Inputs, Textareas, Selects */
+body.dark-mode input[type="text"],
+body.dark-mode select,
+body.dark-mode textarea {
+    background-color: #0f172a !important; /* Slate 900 */
+    border-color: #475569 !important; /* Slate 600 */
+    color: #f8fafc !important; /* Slate 50 */
+}
+
+body.dark-mode input[type="text"]::placeholder,
+body.dark-mode textarea::placeholder {
+    color: #64748b !important; /* Slate 500 */
+}
+
+body.dark-mode input[type="checkbox"] {
+    accent-color: #10b981 !important;
+}
+
+/* 6. Enlaces, Botones y Badges */
+body.dark-mode #btn-imprimir-expediente {
+    background-color: #334155 !important;
+    border-color: #475569 !important;
+    color: #f8fafc !important;
+}
+
+body.dark-mode #btn-imprimir-expediente:hover {
+    background-color: #475569 !important;
+}
+
+body.dark-mode #btn-mic-observaciones {
+    background-color: #0f172a !important;
+    color: #34d399 !important;
+    border-color: #34d399 !important;
+}
+
+body.dark-mode #btn-mic-observaciones:hover {
+    background-color: #1e293b !important;
+}
+
+/* Badges y Chips */
+body.dark-mode .badge.gris {
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
+}
+
+body.dark-mode #label-chaleco {
+    background-color: #2e1065 !important;
+    border-color: #5b21b6 !important;
+    color: #c084fc !important;
+}
+
+/* Observaciones Timeline Items */
+body.dark-mode .obs-item {
+    background: #151f32 !important; /* Slate 850 */
+    border: 1px solid #334155 !important;
+}
+
+body.dark-mode .obs-timeline::before {
+    background: #334155 !important;
+}
+
+body.dark-mode .obs-item::before {
+    border-color: #1e293b !important;
+    box-shadow: 0 0 0 2px #334155 !important;
+}
+
+/* Eventos y Calendarios */
+body.dark-mode .calendario,
+body.dark-mode .evento-card,
+body.dark-mode .operacion-card {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    color: #cbd5e1 !important;
+}
+
+/* Sidebar Adjustment */
+body.dark-mode .sidebar {
+    background: #091a13 !important; /* Darker green */
+    border-right: 1px solid #143527 !important;
+}
+
+body.dark-mode .sidebar .logo h2 {
+    color: #f8fafc !important;
+}
+
+body.dark-mode .sidebar nav a:hover {
+    background-color: #123325 !important;
+}

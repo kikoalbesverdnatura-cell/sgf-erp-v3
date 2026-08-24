@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Expediente de Evolución - {{ persona.nombre }}</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f7fafc;
+            color: #2d3748;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        /* CABECERA */
+        .expediente-header {
+            background: white;
+            border-radius: 18px;
+            padding: 30px;
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            box-shadow: 0 8px 20px rgba(0,0,0,.04);
+            border: 1px solid #edf2f7;
+        }
+        .foto-container {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .datos-principales h1 {
+            margin: 0;
+            font-size: 28px;
+            color: #173D2D;
+            font-weight: 700;
+        }
+        .subtitulo {
+            margin-top: 8px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+        .badge-dept {
+            background: #e6fffa;
+            color: #047487;
+            border: 1px solid #b2f5ea;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85em;
+        }
+        .badge-dias {
+            background: #ebf8ff;
+            color: #2b6cb0;
+            border: 1px solid #bee3f8;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85em;
+        }
+        .badge-riesgo {
+            background: #fff5f5;
+            color: #c53030;
+            border: 1px solid #fed7d7;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85em;
+        }
+        /* SEMÁFORO ALERTA */
+        .alerta-box {
+            border-radius: 12px;
+            padding: 18px;
+            border-left: 5px solid;
+            margin-top: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+        .alerta-box h3 {
+            margin: 0 0 6px 0;
+            font-size: 1.1em;
+            font-weight: 800;
+        }
+        .alerta-box p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #4a5568;
+        }
+        /* PANELS */
+        .panel {
+            background: white;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+            border: 1px solid #edf2ee;
+        }
+        .panel h2 {
+            font-size: 1.25em;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #173D2D;
+            border-bottom: 1px solid #edf2f7;
+            padding-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        /* KPI GRIDS */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+        .kpi-card {
+            background: #fafbfc;
+            border: 1px solid #edf2f7;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .kpi-title {
+            font-size: 1.05em;
+            font-weight: 800;
+            color: #173D2D;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .kpi-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .kpi-val-box {
+            background: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+            flex: 1;
+        }
+        .kpi-val-box.danger {
+            background: #fff5f5;
+            border-color: #fed7d7;
+        }
+        .kpi-label {
+            font-size: 0.75em;
+            color: #718096;
+            margin-bottom: 2px;
+        }
+        .kpi-value {
+            font-size: 1.35em;
+            font-weight: 800;
+            color: #2d3748;
+        }
+        .kpi-value.danger {
+            color: #c53030;
+        }
+        .kpi-diff-box {
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.85em;
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 700;
+        }
+        .kpi-footer {
+            font-size: 0.8em;
+            color: #718096;
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            border-top: 1px solid #edf2f7;
+            padding-top: 10px;
+        }
+        /* TABLAS */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+        th {
+            background-color: #f7fafc;
+            padding: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            color: #4a5568;
+            font-weight: 700;
+            text-align: center;
+        }
+        td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #edf2f7;
+            color: #4a5568;
+            text-align: center;
+        }
+        tr:hover {
+            background-color: #fafbfc;
+        }
+        /* CHARTS CONTAINER */
+        .chart-container {
+            position: relative;
+            height: 320px;
+            width: 100%;
+            margin-top: 15px;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 20px;
+            align-items: start;
+        }
+        /* TIMELINE */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .timeline-item {
+            background: #fdfdfd;
+            border: 1px solid #edf2f7;
+            border-radius: 10px;
+            padding: 15px;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.01);
+        }
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82em;
+            color: #718096;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #edf2f7;
+            padding-bottom: 6px;
+        }
+        .timeline-body {
+            font-size: 0.9em;
+            color: #2d3748;
+            line-height: 1.45;
+        }
+        /* PRINT SPECIFICS */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                color: black;
+            }
+            .container {
+                max-width: 100%;
+                gap: 20px;
+            }
+            .panel {
+                box-shadow: none !important;
+                border: 1px solid #e2e8f0 !important;
+                page-break-inside: avoid;
+            }
+            .expediente-header {
+                box-shadow: none !important;
+                border: 1px solid #e2e8f0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- CABECERA -->
+    <div class="expediente-header">
+        <div class="foto-container">
+            <svg viewBox="0 0 100 100" width="80" height="80" style="fill:#718096;">
+                <circle cx="50" cy="35" r="20"/>
+                <path d="M50 60c-25 0-35 15-35 25v5h70v-5c0-10-10-25-35-25z"/>
+            </svg>
+        </div>
+        <div class="datos-principales" style="flex-grow: 1;">
+            <h1>{{ persona.nombre }}</h1>
+            <div class="subtitulo">
+                <span>ID: <strong>{{ persona.id }}</strong></span>
+                <span>Programa: <strong>{{ persona.programa }}</strong></span>
+                <span class="badge-dept">🏷️ {{ persona.departamento }}</span>
+                <span>📅 Entrada: <strong>{{ persona.fecha_incorporacion }}</strong></span>
+                <span>⏰ Hora: <strong>{{ persona.hora_entrada or '08:00' }}</strong></span>
+                <span class="badge-dias">⏳ Días seg.: {{ persona.dias }}</span>
+                {% if persona.riesgo %}
+                <span class="badge-riesgo">⚠️ Riesgo: {{ persona.riesgo }}</span>
+                {% endif %}
+            </div>
+            
+            <!-- Semáforo de alerta -->
+            <div class="alerta-box" style="background: {{ alerta.bg }}; border-color: {{ alerta.border }}; border-left-color: {{ alerta.badge }}; color: {{ alerta.text }};">
+                <h3 style="color: {{ alerta.badge }};">{{ alerta.title }}</h3>
+                <p>{{ alerta.desc }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESUMEN ANALÍTICO DE IA -->
+    <div class="panel">
+        <h2>📊 Resumen analítico de los datos</h2>
+        <div id="ia-content">
+            {{ resumen_ia_formatted | safe }}
+        </div>
+    </div>
+
+    <!-- DOBLE COLUMNA: CHECKLIST Y KPIS -->
+    <div class="kpi-grid">
+        <!-- Checklist de Onboarding -->
+        <div class="panel" style="margin: 0;">
+            <h2>📋 Progreso de Onboarding</h2>
+            <ul style="list-style: none; padding-left: 0; margin: 0; line-height: 1.8; font-size: 0.92em;">
+                <li><strong>RRHH:</strong> {% if persona.rrhh in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+                <li><strong>Almuerzo:</strong> {% if persona.almuerzo in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+                <li><strong>Uniforme:</strong> {% if persona.uniforme in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+                <li><strong>Psicotécnico:</strong> {% if persona.psicotecnico in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+                <li><strong>Formación Bienvenida:</strong> {% if persona.formacion in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+                <li><strong>Tour Empresa:</strong> {% if persona.tour in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+                <li><strong>PDA Entregada:</strong> {% if persona.pda in ('SÍ','SI','TRUE','1','OK') %}🟢 Completado{% else %}🔴 Pendiente{% endif %}</li>
+            </ul>
+        </div>
+        
+        <!-- KPIs de Rendimiento -->
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Productividad -->
+            <div class="panel" style="margin: 0; padding: 18px;">
+                <div class="kpi-title">Productividad Real <span style="color: #2b6cb0;">{{ kpis.prod_real }}%</span></div>
+                <div class="kpi-main">
+                    <div class="kpi-val-box">
+                        <div class="kpi-label">Real (Prod %)</div>
+                        <div class="kpi-value">{{ kpis.prod_real }}%</div>
+                    </div>
+                    <div style="width: 15px;"></div>
+                    <div class="kpi-val-box">
+                        <div class="kpi-label">Ideal (Día {{ persona.dias }})</div>
+                        <div class="kpi-value">{{ kpis.prod_ideal }}%</div>
+                    </div>
+                </div>
+                <div class="kpi-diff-box" style="background: {% if kpis.prod_diff >= 0 %}#ebf7ee{% else %}#fdf2f2{% endif %}; color: {% if kpis.prod_diff >= 0 %}#27ae60{% else %}#c0392b{% endif %};">
+                    {% if kpis.prod_diff >= 0 %}📈 +{{ kpis.prod_diff }}% (Por encima del modelo ideal){% else %}📉 {{ kpis.prod_diff }}% (Por debajo del modelo ideal){% endif %}
+                </div>
+                <div class="kpi-footer">
+                    <span>Volumen: <strong>{{ kpis.volumen }} líneas</strong></span>
+                    <span>Esperadas: <strong>{{ kpis.esperadas }}</strong></span>
+                </div>
+            </div>
+            
+            <!-- Calidad -->
+            <div class="panel" style="margin: 0; padding: 18px;">
+                <div class="kpi-title">Calidad de Operación <span style="color: #c53030;">{{ kpis.error_real }}%</span></div>
+                <div class="kpi-main">
+                    <div class="kpi-val-box {% if kpis.error_diff > 0 %}danger{% endif %}">
+                        <div class="kpi-label">Tasa Error Real</div>
+                        <div class="kpi-value {% if kpis.error_diff > 0 %}danger{% endif %}">{{ kpis.error_real }}%</div>
+                    </div>
+                    <div style="width: 15px;"></div>
+                    <div class="kpi-val-box">
+                        <div class="kpi-label">Proyección (Día {{ persona.dias }})</div>
+                        <div class="kpi-value">{{ kpis.error_ideal }}%</div>
+                    </div>
+                </div>
+                <div class="kpi-diff-box" style="background: {% if kpis.error_diff <= 0 %}#ebf7ee{% else %}#fdf2f2{% endif %}; color: {% if kpis.error_diff <= 0 %}#27ae60{% else %}#c0392b{% endif %};">
+                    {% if kpis.error_diff <= 0 %}🟢 {{ kpis.error_diff }}% (Mejor que el modelo ideal){% else %}⚠️ +{{ kpis.error_diff }}% (Peor que el modelo ideal){% endif %}
+                </div>
+                <div class="kpi-footer">
+                    <span>Errores Totales: <strong>{{ kpis.errores_totales }}</strong></span>
+                    <span>Última Act.: <strong>{{ kpis.last_updated }}</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EVOLUCIÓN HISTÓRICA -->
+    <div class="panel">
+        <h2>📈 Evolución Histórica</h2>
+        <div class="chart-container">
+            <canvas id="chart-line-evolucion"></canvas>
+        </div>
+    </div>
+
+    <!-- HISTORIAL DE TURNOS -->
+    <div class="panel">
+        <h2>📋 Historial de Turnos</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Líneas</th>
+                        <th style="background-color: #e2e7ec;">Prod. (Base 80)</th>
+                        <th>Tiempo</th>
+                        <th>Lín/Hora</th>
+                        <th style="border-left: 2px solid #ddd;">Errores</th>
+                        <th>% Err</th>
+                        <th>Nivel</th>
+                        <th>Cant.</th>
+                        <th>Salto</th>
+                        <th>Prod.Eq.</th>
+                        <th>Desord.</th>
+                        <th>M.Etiq.</th>
+                        <th>Maltrato</th>
+                        <th>Cambio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in history %}
+                    <tr>
+                        <td>{{ r.fecha }}</td>
+                        <td>{{ r.lineas if r.lineas is not none else '-' }}</td>
+                        <td style="font-weight: bold; background-color: {% if r.productividad_num >= 100 %}#d4edda{% elif r.productividad_num >= 85 %}#e2f0d9{% elif r.productividad_num >= 70 %}#fff3cd{% else %}#f8d7da{% endif %}; color: #333; border: 1px solid #e2e8f0;">
+                            {{ r.productividad }}
+                        </td>
+                        <td>{{ r.horas }}h</td>
+                        <td>{{ r.lineas_hora if r.lineas_hora is not none else '-' }}</td>
+                        <td style="border-left: 2px solid #e2e8f0;">{{ r.errores_num if r.errores_num is not none else '-' }}</td>
+                        <td style="font-weight: bold; color: #c0392b;">{{ r.errores_pct }}</td>
+                        <td>{% if r.err_nivel and r.err_nivel > 0 %}<strong style="color:#c0392b;">{{ r.err_nivel }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_cant and r.err_cant > 0 %}<strong style="color:#c0392b;">{{ r.err_cant }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_salto and r.err_salto > 0 %}<strong style="color:#c0392b;">{{ r.err_salto }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_prod and r.err_prod > 0 %}<strong style="color:#c0392b;">{{ r.err_prod }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_desorden and r.err_desorden > 0 %}<strong style="color:#c0392b;">{{ r.err_desorden }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_etiq and r.err_etiq > 0 %}<strong style="color:#c0392b;">{{ r.err_etiq }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_maltrato and r.err_maltrato > 0 %}<strong style="color:#c0392b;">{{ r.err_maltrato }}</strong>{% else %}-{% endif %}</td>
+                        <td>{% if r.err_cambio and r.err_cambio > 0 %}<strong style="color:#c0392b;">{{ r.err_cambio }}</strong>{% else %}-{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VALORACIÓN ACTITUDINAL -->
+    <div class="panel">
+        <h2>🧠 Valoración Actitudinal y Conducta</h2>
+        <div class="chart-grid">
+            <table style="margin-top: 0; font-size: 0.9em;">
+                <thead>
+                    <tr style="background-color: #f7fafc;">
+                        <th style="text-align: left; padding: 10px;">Indicador Actitudinal</th>
+                        <th style="width: 100px;">Puntuación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Proactividad</td>
+                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_proactividad or '-' }} / 5</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Autonomía</td>
+                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_autonomia or '-' }} / 5</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Disposición</td>
+                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_disposicion or '-' }} / 5</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Respeto Normativo</td>
+                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_respeto or '-' }} / 5</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Receptividad</td>
+                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_receptividad or '-' }} / 5</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Uso PDA</td>
+                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_uso_pda or '-' }} / 5</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="width: 320px; height: 320px; margin: 0 auto;">
+                <canvas id="chart-radar-actitud"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMACIÓN RECIBIDA -->
+    <div class="panel">
+        <h2>🎓 Formación Recibida (Historial de Clases)</h2>
+        {% if formacion and formacion.clases %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Formador</th>
+                    <th>Duración</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in formacion.clases %}
+                <tr>
+                    <td>{{ c.fecha }}</td>
+                    <td><strong style="color: #173D2D;">{{ c.tipo }}</strong></td>
+                    <td>{{ c.formador_nombre }}</td>
+                    <td>{{ c.duracion }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #718096; text-align: center; margin: 20px 0; font-size: 0.9em; font-style: italic;">No hay clases de formación registradas para este trabajador.</p>
+        {% endif %}
+    </div>
+
+    <!-- OBSERVACIONES timeline -->
+    <div class="panel">
+        <h2>✍️ Observaciones del Expediente</h2>
+        {% if observaciones_timeline %}
+        <div class="timeline">
+            {% for o in observaciones_timeline %}
+            <div class="timeline-item">
+                <div class="timeline-header">
+                    <span>👤 <strong>{{ o.autor_id }}</strong> <span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 700; color: #4a5568;">{{ o.tipo | upper }}</span></span>
+                    <span>📅 {{ o.fecha }}</span>
+                </div>
+                <div class="timeline-body">
+                    {{ o.comentario }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="color: #718096; text-align: center; margin: 20px 0; font-size: 0.9em; font-style: italic;">Sin observaciones registradas.</p>
+        {% endif %}
+    </div>
+
+    <!-- FICHAJES Y DESVIACIÓN -->
+    <div class="panel">
+        <h2>⏱️ Fichajes y Desviación (Últimos 30 días)</h2>
+        {% if fichajes %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Esperada</th>
+                    <th>Desviación</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in fichajes %}
+                <tr>
+                    <td>{{ f.fecha }}</td>
+                    <td>{{ f.entrada }}</td>
+                    <td>{{ f.salida }}</td>
+                    <td>{{ f.esperada }}</td>
+                    <td style="font-weight: bold; color: {% if f.es_retraso %}#c0392b{% else %}#27ae60{% endif %};">
+                        {{ f.desviacion }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #718096; text-align: center; margin: 20px 0; font-size: 0.9em; font-style: italic;">No hay fichajes registrados en los últimos 30 días.</p>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- CHART RENDERING SCRIPTS -->
+<script>
+    // 1. Modelo Ideal
+    const MODELO_IDEAL = [
+        { day: 1, prod: 64.3, error: 1.4 },
+        { day: 2, prod: 72.5, error: 1.5 },
+        { day: 3, prod: 90.0, error: 1.3 },
+        { day: 4, prod: 87.7, error: 1.8 },
+        { day: 5, prod: 97.4, error: 0.8 },
+        { day: 6, prod: 99.9, error: 1.2 },
+        { day: 7, prod: 103.5, error: 1.7 },
+        { day: 8, prod: 105.5, error: 1.5 },
+        { day: 9, prod: 107.5, error: 1.4 },
+        { day: 10, prod: 109.5, error: 1.3 },
+        { day: 11, prod: 111.2, error: 1.2 },
+        { day: 12, prod: 112.8, error: 1.1 },
+        { day: 13, prod: 114.2, error: 1.0 },
+        { day: 14, prod: 115.5, error: 0.9 },
+        { day: 15, prod: 116.6, error: 0.8 },
+        { day: 16, prod: 117.5, error: 0.7 },
+        { day: 17, prod: 118.2, error: 0.6 },
+        { day: 18, prod: 118.8, error: 0.5 },
+        { day: 19, prod: 119.3, error: 0.5 },
+        { day: 20, prod: 119.6, error: 0.5 },
+        { day: 21, prod: 119.8, error: 0.5 },
+        { day: 22, prod: 119.9, error: 0.5 },
+        { day: 23, prod: 120.0, error: 0.5 },
+        { day: 24, prod: 120.0, error: 0.5 },
+        { day: 25, prod: 120.0, error: 0.5 },
+        { day: 26, prod: 120.0, error: 0.5 },
+        { day: 27, prod: 120.0, error: 0.5 },
+        { day: 28, prod: 120.0, error: 0.5 },
+        { day: 29, prod: 120.0, error: 0.5 },
+        { day: 30, prod: 120.0, error: 0.5 },
+        { day: 31, prod: 120.0, error: 0.5 }
+    ];
+
+    function getModeloIdealParaDia(day) {
+        if (day <= 0) return { prod: 64.3, error: 1.4 };
+        const idx = Math.min(day, MODELO_IDEAL.length) - 1;
+        return MODELO_IDEAL[idx];
+    }
+
+    // Datos Históricos de Turnos
+    const turnosRaw = {{ history_json | safe }};
+    const turnosOrdenados = [...turnosRaw].reverse();
+    
+    const labels = turnosOrdenados.map(t => t.fecha);
+    const datasetProdReal = turnosOrdenados.map(t => parseFloat(t.productividad_num) || 0);
+    const datasetErroresReal = turnosOrdenados.map(t => {
+        if (t.errores_pct) {
+            return parseFloat(t.errores_pct.replace('%', '')) || 0;
+        }
+        return 0;
+    });
+    
+    const datasetProdIdeal = turnosOrdenados.map((t, idx) => {
+        const day = idx + 1;
+        return getModeloIdealParaDia(day).prod;
+    });
+    
+    const datasetErroresIdeal = turnosOrdenados.map((t, idx) => {
+        const day = idx + 1;
+        return getModeloIdealParaDia(day).error;
+    });
+
+    // Renderizar gráfico de línea
+    const ctxLine = document.getElementById('chart-line-evolucion').getContext('2d');
+    new Chart(ctxLine, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Prod % Real',
+                    data: datasetProdReal,
+                    borderColor: '#1f4e3d',
+                    backgroundColor: 'rgba(31, 78, 61, 0.05)',
+                    borderWidth: 2.5,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Proyección Ideal (Prod %)',
+                    data: datasetProdIdeal,
+                    borderColor: '#2ecc71',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Error % Real',
+                    data: datasetErroresReal,
+                    borderColor: '#c0392b',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1.5,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'Error % Ideal',
+                    data: datasetErroresIdeal,
+                    borderColor: '#e74c3c',
+                    borderWidth: 1.5,
+                    borderDash: [3, 3],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { boxWidth: 12, font: { size: 10 } }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    type: 'linear',
+                    position: 'left',
+                    suggestedMin: 0,
+                    suggestedMax: 120,
+                    ticks: { callback: v => v + '%' }
+                },
+                y1: {
+                    type: 'linear',
+                    position: 'right',
+                    suggestedMin: 0,
+                    suggestedMax: 5.0,
+                    grid: { drawOnChartArea: false },
+                    ticks: { callback: v => v + '%' }
+                }
+            }
+        }
+    });
+
+    // Renderizar gráfico de radar (Actitud)
+    const ctxRadar = document.getElementById('chart-radar-actitud').getContext('2d');
+    const actData = [
+        {{ persona.act_proactividad or 0 }},
+        {{ persona.act_autonomia or 0 }},
+        {{ persona.act_disposicion or 0 }},
+        {{ persona.act_respeto or 0 }},
+        {{ persona.act_receptividad or 0 }},
+        {{ persona.act_uso_pda or 0 }}
+    ];
+    
+    new Chart(ctxRadar, {
+        type: 'radar',
+        data: {
+            labels: ['Proactividad', 'Autonomía', 'Disposición', 'Respeto Normativo', 'Receptividad', 'Uso PDA'],
+            datasets: [{
+                label: 'Puntuación',
+                data: actData,
+                backgroundColor: 'rgba(23, 61, 45, 0.2)',
+                borderColor: '#173D2D',
+                borderWidth: 2,
+                pointBackgroundColor: '#173D2D',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: '#173D2D'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    angleLines: { display: true },
+                    suggestedMin: 0,
+                    suggestedMax: 5,
+                    ticks: { stepSize: 1, font: { size: 9 } },
+                    pointLabels: { font: { size: 10, weight: 'bold' } }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+</script>
+
+</body>
+</html>

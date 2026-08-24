@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container">
+
+    <h1>👥 Empleados</h1>
+
+    <div style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
+        <label style="font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; background: #edf2f7; padding: 6px 12px; border-radius: 6px; font-size: 0.9em; user-select: none; border: 1px solid #cbd5e0; color: #2d3748;">
+            <input type="checkbox" id="check-todo-historial" style="transform: scale(1.15); cursor: pointer;">
+            🗂️ Todo Historial
+        </label>
+    </div>
+
+    <table id="tablaPersonas" style="margin-top: 20px;">
+        <thead>
+            <tr>
+                <th data-column="id">
+                    <div class="header-sort">
+                        <span>ID</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="id" placeholder="ID...">
+                </th>
+                <th>
+                    <div style="font-weight: 700; padding-bottom: 5px; text-align: center;">Foto</div>
+                    <div style="height: 25px;"></div>
+                </th>
+                <th data-column="chaleco">
+                    <div class="header-sort">
+                        <span>Chaleco</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <select id="filtro-chaleco" class="header-filter" data-campo="chaleco">
+                        <option value="">👚 Chaleco...</option>
+                        <option value="SÍ">Sí</option>
+                        <option value="NO">No</option>
+                    </select>
+                </th>
+                <th data-column="nombre">
+                    <div class="header-sort">
+                        <span>Nombre</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="nombre" placeholder="Nombre...">
+                </th>
+                <th data-column="departamento">
+                    <div class="header-sort">
+                        <span>Departamento</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <select id="filtro-departamento" class="header-filter" data-campo="departamento">
+                        <option value="">🏢 Dept...</option>
+                    </select>
+                </th>
+                <th data-column="estado">
+                    <div class="header-sort">
+                        <span>Estado</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <select id="filtro-estado" class="header-filter" data-campo="estado">
+                        <option value="">📋 Estado...</option>
+                    </select>
+                </th>
+                <th data-column="contrato_limitado">
+                    <div class="header-sort">
+                        <span>Contrato</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <select id="filtro-contrato" class="header-filter" data-campo="contrato_limitado">
+                        <option value="">📜 Contrato...</option>
+                    </select>
+                </th>
+                <th>
+                    <div style="font-weight: 700; padding-bottom: 5px; text-align: center;">Salida</div>
+                    <select id="filtro-salida" class="header-filter" data-campo="salida" style="width: 100%; box-sizing: border-box; padding: 2px 4px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.85em; font-weight: normal;">
+                        <option value="NO" selected>Activos</option>
+                        <option value="SI">Salidos</option>
+                        <option value="">Todos</option>
+                    </select>
+                </th>
+                <th data-column="riesgo">
+                    <div class="header-sort">
+                        <span>Riesgo</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <select id="filtro-riesgo" class="header-filter" data-campo="riesgo">
+                        <option value="">⚠️ Riesgo...</option>
+                    </select>
+                </th>
+                <th data-column="dias">
+                    <div class="header-sort">
+                        <span>Días</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="dias" placeholder="Días...">
+                </th>
+                <th data-column="nota">
+                    <div class="header-sort">
+                        <span>Nota</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="nota" placeholder="Nota...">
+                </th>
+                <th data-column="rendimiento">
+                    <div class="header-sort">
+                        <span>Rendimiento</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="rendimiento" placeholder="Rendimiento...">
+                </th>
+                <th data-column="errores">
+                    <div class="header-sort">
+                        <span>Errores</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="errores" placeholder="Errores...">
+                </th>
+                <th data-column="formacion_aula">
+                    <div class="header-sort">
+                        <span>Aula (Hrs)</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="formacion_aula" placeholder="Aula...">
+                </th>
+                <th data-column="formacion_camara">
+                    <div class="header-sort">
+                        <span>Cámara (Hrs)</span> <span class="sort-icon">⇅</span>
+                    </div>
+                    <input type="text" class="header-filter" data-campo="formacion_camara" placeholder="Cámara...">
+                </th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+<script src="/static/js/personas.js?v=27"></script>
+
+{% endblock %}

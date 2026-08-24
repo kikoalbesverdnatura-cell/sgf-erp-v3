@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>SGF Enterprise</title>
+
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+     <link rel="stylesheet" href="/static/css/personas.css?v=12">
+    <link rel="stylesheet" href="/static/css/expediente.css?v=7">
+    <link rel="stylesheet" href="/static/css/planificacion.css">
+    <link rel="stylesheet" href="/static/css/formadores.css?v=2">
+</head>
+
+<body>
+<script>
+    if (localStorage.getItem("sgf-theme") === "dark") {
+        document.body.classList.add("dark-mode");
+    }
+</script>
+
+<div class="layout">
+
+    <aside class="sidebar">
+
+        <div class="logo">
+            <h2>SGF ERP</h2>
+            <span>Departamento Formación</span>
+        </div>
+
+        {% if usuario %}
+        <div class="user-info-box" style="padding: 10px 14px; margin: 12px 0; background: #255340; border-radius: 8px; font-size: 0.8em; display: flex; flex-direction: column; gap: 4px; border: 1px solid rgba(255,255,255,0.08);">
+            <span style="font-weight: 700; color: #ffffff; display: flex; align-items: center; gap: 4px;">👤 {{ usuario.nombre }}</span>
+            <span style="font-size: 0.9em; color: #bfcfc7; font-weight: 500;">Rol: {{ usuario.rol }}</span>
+        </div>
+        {% endif %}
+
+        <nav>
+            <a href="/">🏠 Dashboard</a>
+            <a href="/personas">👥 Empleados</a>
+            <a href="/planificacion">🗓️ Planificación</a>
+            <a href="/formacion">📚 Documentación</a>
+            <a href="/formadores">🎓 Formadores</a>
+            {% if usuario and usuario.rol == 'Administrador' %}
+            <a href="/administracion">⚙ Administración</a>
+            {% endif %}
+            <div style="margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.15);"></div>
+            <a href="https://grafana.verdnatura.es" target="_blank">📊 Grafana</a>
+            <a href="https://salix.verdnatura.es" target="_blank">🍃 Salix</a>
+            <div style="margin: 5px 0; border-top: 1px dashed rgba(255,255,255,0.15);"></div>
+            <a href="/logout" style="color: #feb2b2;">🚪 Cerrar Sesión</a>
+
+            <div style="margin: 15px 0 10px; border-top: 1px dashed rgba(255,255,255,0.15);"></div>
+
+            <!-- Tema Selector (Sprint 2) -->
+            <div class="theme-selector" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px;">
+                <span style="font-size: 0.75em; color: #bfcfc7; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">🌓 Tema</span>
+                <div style="display: flex; background: #255340; border-radius: 8px; padding: 3px; gap: 2px;">
+                    <button id="btn-theme-light" style="flex: 1; border: none; background: #173D2D; color: white; padding: 6px; border-radius: 6px; font-size: 0.75em; font-weight: 700; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;">☀️ Claro</button>
+                    <button id="btn-theme-dark" style="flex: 1; border: none; background: transparent; color: #bfcfc7; padding: 6px; border-radius: 6px; font-size: 0.75em; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;">🌙 Oscuro</button>
+                </div>
+            </div>
+
+            <!-- Modo de Vista Selector (Sprint 2) -->
+            <div class="view-selector" style="display: flex; flex-direction: column; gap: 6px;">
+                <span style="font-size: 0.75em; color: #bfcfc7; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">🖥️ Modo de Vista</span>
+                <div style="display: flex; background: #255340; border-radius: 8px; padding: 3px; gap: 2px;">
+                    <button id="btn-view-desktop" style="flex: 1; border: none; background: #173D2D; color: white; padding: 6px; border-radius: 6px; font-size: 0.75em; font-weight: 700; cursor: pointer; transition: all 0.2s;">🖥️ Desktop</button>
+                    <button id="btn-view-tablet" style="flex: 1; border: none; background: transparent; color: #bfcfc7; padding: 6px; border-radius: 6px; font-size: 0.75em; font-weight: 600; cursor: pointer; transition: all 0.2s;">📱 Tablet</button>
+                </div>
+            </div>
+        </nav>
+    </aside>
+
+    <main class="content">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+<!-- Botón Flotante para cambiar la vista (Desktop / Tablet) -->
+<button id="btn-floating-view" style="position: fixed; bottom: 20px; right: 20px; z-index: 10000; background: #173D2D; color: white; border: none; width: 52px; height: 52px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.4em; box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: all 0.3s; transform: scale(1);" title="Cambiar modo de vista (Escritorio / Tablet)" onmouseenter="this.style.transform='scale(1.1)'; this.style.background='#255340';" onmouseleave="this.style.transform='scale(1)'; this.style.background='#173D2D';">
+    📱
+</button>
+
+<script>
+    // Lógica para alternar el modo de visualización (Escritorio / Tablet)
+    document.addEventListener("DOMContentLoaded", () => {
+        const btnDesktop = document.getElementById("btn-view-desktop");
+        const btnTablet = document.getElementById("btn-view-tablet");
+        const btnFloating = document.getElementById("btn-floating-view");
+        const body = document.body;
+
+        const activarModo = (modo) => {
+            if (modo === "tablet") {
+                body.classList.add("mode-tablet");
+                btnTablet.style.background = "#173D2D";
+                btnTablet.style.color = "white";
+                btnTablet.style.fontWeight = "700";
+                btnDesktop.style.background = "transparent";
+                btnDesktop.style.color = "#bfcfc7";
+                btnDesktop.style.fontWeight = "600";
+                
+                btnFloating.innerHTML = "🖥️";
+                btnFloating.title = "Cambiar a Vista Escritorio";
+            } else {
+                body.classList.remove("mode-tablet");
+                btnDesktop.style.background = "#173D2D";
+                btnDesktop.style.color = "white";
+                btnDesktop.style.fontWeight = "700";
+                btnTablet.style.background = "transparent";
+                btnTablet.style.color = "#bfcfc7";
+                btnTablet.style.fontWeight = "600";
+                
+                btnFloating.innerHTML = "📱";
+                btnFloating.title = "Cambiar a Vista Tablet";
+            }
+        };
+
+        // Cargar preferencia guardada
+        const modoGuardado = localStorage.getItem("sgf-view-mode") || "desktop";
+        activarModo(modoGuardado);
+
+        btnDesktop.addEventListener("click", () => {
+            localStorage.setItem("sgf-view-mode", "desktop");
+            activarModo("desktop");
+            window.dispatchEvent(new Event('resize'));
+        });
+
+        btnTablet.addEventListener("click", () => {
+            localStorage.setItem("sgf-view-mode", "tablet");
+            activarModo("tablet");
+            window.dispatchEvent(new Event('resize'));
+        });
+
+        btnFloating.addEventListener("click", () => {
+            const actual = localStorage.getItem("sgf-view-mode") || "desktop";
+            const nuevo = actual === "tablet" ? "desktop" : "tablet";
+            localStorage.setItem("sgf-view-mode", nuevo);
+            activarModo(nuevo);
+            window.dispatchEvent(new Event('resize'));
+        });
+
+        // ==========================================
+        // Lógica del Tema (Claro / Oscuro) - Sidebar (Sprint 2)
+        // ==========================================
+        const btnThemeLight = document.getElementById("btn-theme-light");
+        const btnThemeDark = document.getElementById("btn-theme-dark");
+
+        const activarTema = (tema) => {
+            if (tema === "dark") {
+                body.classList.add("dark-mode");
+                if (btnThemeDark) {
+                    btnThemeDark.style.background = "#173D2D";
+                    btnThemeDark.style.color = "white";
+                    btnThemeDark.style.fontWeight = "700";
+                }
+                if (btnThemeLight) {
+                    btnThemeLight.style.background = "transparent";
+                    btnThemeLight.style.color = "#bfcfc7";
+                    btnThemeLight.style.fontWeight = "600";
+                }
+            } else {
+                body.classList.remove("dark-mode");
+                if (btnThemeLight) {
+                    btnThemeLight.style.background = "#173D2D";
+                    btnThemeLight.style.color = "white";
+                    btnThemeLight.style.fontWeight = "700";
+                }
+                if (btnThemeDark) {
+                    btnThemeDark.style.background = "transparent";
+                    btnThemeDark.style.color = "#bfcfc7";
+                    btnThemeDark.style.fontWeight = "600";
+                }
+            }
+
+            // Si estamos en la ficha de empleado, recalculamos el color de fondo
+            if (window.recalcularFondoFicha) {
+                const lblChaleco = document.getElementById("label-chaleco");
+                if (lblChaleco) {
+                    window.recalcularFondoFicha(lblChaleco.dataset.riesgo, lblChaleco.dataset.chaleco);
+                }
+            }
+        };
+
+        const temaGuardado = localStorage.getItem("sgf-theme") || "light";
+        activarTema(temaGuardado);
+
+        if (btnThemeLight) {
+            btnThemeLight.addEventListener("click", () => {
+                localStorage.setItem("sgf-theme", "light");
+                activarTema("light");
+            });
+        }
+
+        if (btnThemeDark) {
+            btnThemeDark.addEventListener("click", () => {
+                localStorage.setItem("sgf-theme", "dark");
+                activarTema("dark");
+            });
+        }
+    });
+</script>
+
+<!-- Loader global de actualización -->
+<div id="global-loader" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(255,255,255,0.7); z-index: 999999; justify-content: center; align-items: center; flex-direction: column; gap: 15px; transition: opacity 0.15s ease;">
+    <div class="spinner" style="width: 50px; height: 50px; border: 5px solid #e3e3e3; border-top: 5px solid #173D2D; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 1.15em; color: #173D2D; font-weight: 600;">Actualizando...</div>
+</div>
+<style>
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    body.dark-mode #global-loader {
+        background: rgba(0, 0, 0, 0.75) !important;
+    }
+    body.dark-mode #global-loader div {
+        color: #75dfad !important;
+    }
+    body.dark-mode #global-loader .spinner {
+        border: 5px solid #2d5a44 !important;
+        border-top: 5px solid #75dfad !important;
+    }
+</style>
+<script>
+    (function() {
+        const loader = document.getElementById("global-loader");
+        let activeRequests = 0;
+
+        function showLoader() {
+            if (loader) loader.style.display = "flex";
+        }
+        function hideLoader() {
+            if (loader) loader.style.display = "none";
+        }
+
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            const options = args[1] || {};
+            let isSilent = false;
+            if (options.headers) {
+                if (options.headers instanceof Headers) {
+                    isSilent = options.headers.get("X-Silent") === "true";
+                } else if (typeof options.headers === "object") {
+                    isSilent = options.headers["X-Silent"] === "true" || options.headers["x-silent"] === "true";
+                }
+            }
+
+            if (!isSilent) {
+                activeRequests++;
+                showLoader();
+            }
+            try {
+                const response = await originalFetch(...args);
+                return response;
+            } finally {
+                if (!isSilent) {
+                    activeRequests--;
+                    if (activeRequests <= 0) {
+                        hideLoader();
+                    }
+                }
+            }
+        };
+    })();
+</script>
+
+</body>
+
+</html>

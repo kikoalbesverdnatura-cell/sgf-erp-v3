@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="/static/css/dashboard.css">
+
+<div class="dashboard">
+
+    <header class="pageHeader">
+
+        <div>
+            <h1>Buenos días, Kiko 👋</h1>
+            <p>Centro de Control · Departamento de Formación</p>
+        </div>
+
+        <div class="headerActions">
+
+            <div class="infoBox">
+                <strong id="todayDate">--</strong>
+                <span>Fecha</span>
+            </div>
+
+            <div class="infoBox">
+                <strong id="lastUpdate">--</strong>
+                <span>Actualización</span>
+            </div>
+
+            <button class="primaryButton" onclick="loadDashboard(true)">
+                🔄 Actualizar
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- Banner de Alerta de Impuntualidad -->
+    <div id="contenedor-banner-retrasos" style="display: none;"></div>
+
+    <section class="kpiGrid">
+
+        <div class="kpiCard">
+            <span>👥 Personas seguimiento</span>
+            <h2 id="kpiSeguimiento">0</h2>
+        </div>
+
+        <div class="kpiCard">
+            <span>🟢 Incorporaciones</span>
+            <h2 id="kpiNuevas">0</h2>
+        </div>
+
+        <div class="kpiCard">
+            <span>🟣 Comerciales Mili</span>
+            <h2 id="kpiMili">0</h2>
+        </div>
+
+        <div class="kpiCard">
+            <span>🎓 Formadores</span>
+            <h2 id="kpiFormadores">0</h2>
+        </div>
+
+        <div class="kpiCard">
+            <span>📱 PDA entregadas</span>
+            <h2 id="kpiPDA">0</h2>
+        </div>
+
+        <div class="kpiCard danger" onclick="abrirModalRiesgo()" style="cursor: pointer;">
+            <span>🚨 Riesgo alto</span>
+            <h2 id="kpiRiesgo">0</h2>
+        </div>
+
+    </section>
+
+
+    <section class="dashboardGrid dashboardTop">
+
+        <div class="panel panelLarge">
+            <h2>📅 Incorporaciones</h2>
+            <div id="panelHoy" class="listPanel"></div>
+        </div>
+
+        <div class="panel">
+            <h2>📆 Próximas entradas</h2>
+            <div id="panelProximas" class="listPanel"></div>
+        </div>
+
+        <div class="panel">
+            <h2>🚦 Estado del programa</h2>
+            <div id="panelEstados" class="listPanel"></div>
+        </div>
+
+    </section>
+
+
+    <section class="dashboardGrid three">
+
+        <div class="panel">
+            <h2>🏭 Departamentos</h2>
+            <div id="panelDepartamentos" class="listPanel"></div>
+        </div>
+
+        <div class="panel" style="border: 1px solid #ffdcd6; background: #fffcfc;">
+            <h2 style="color: #c0392b; font-weight: 700; border-bottom: 1px solid #ffdcd6; padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-size: 1.1em;">
+                <span>🚨 Errores recurrentes</span>
+            </h2>
+            <div id="panelErroresConsecutivos" class="listPanel"></div>
+        </div>
+
+        <div class="panel">
+            <h2>✅ Checklist pendientes</h2>
+            <div id="panelChecklist" class="listPanel"></div>
+        </div>
+
+    </section>
+
+
+    <section class="dashboardGrid three">
+
+        <div class="panel wide">
+            <h2>📈 Productividad media</h2>
+            <div id="panelProductividad"></div>
+        </div>
+
+        <div class="panel wide">
+            <h2>📉 Error medio</h2>
+            <div id="panelErrores"></div>
+        </div>
+
+        <div class="panel">
+            <h2>⚠ Personas en riesgo</h2>
+            <div id="panelRiesgo" class="listPanel"></div>
+        </div>
+
+    </section>
+
+
+
+    <section class="dashboardGrid three">
+
+        <div class="panel wide">
+            <h2>👥 Seguimiento individual</h2>
+            <div id="panelSeguimientoIndividual" class="listPanel"></div>
+        </div>
+
+        <div class="panel">
+            <h2>👨‍🏫 Formadores y carga</h2>
+            <div id="panelFormadores" class="listPanel"></div>
+        </div>
+
+        <div class="panel">
+            <h2>⚡ Próximas acciones</h2>
+            <div id="panelAcciones" class="listPanel"></div>
+        </div>
+
+    </section>
+
+
+    <section class="dashboardGrid two">
+
+        <div class="panel wide">
+            <h2>📌 Actividad reciente</h2>
+            <div id="panelTimeline" class="listPanel"></div>
+        </div>
+
+        <div class="panel">
+            <h2>⚡ Accesos rápidos</h2>
+
+            <div class="quickActions">
+                <button onclick="window.location='/personas'">👥 Ver personas</button>
+                <button onclick="window.location='/planificacion'">📅 Abrir planificación</button>
+                <button onclick="window.location='/operaciones'">🧭 Ir a operaciones</button>
+                <button onclick="window.location='/analitica'">📊 Ver analítica</button>
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
+
+<!-- Modal de Retrasos -->
+<div id="modal-retrasos" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>⏰ Alerta de Impuntualidad (≥ 3 días tarde)</h2>
+            <button class="btn-close" onclick="cerrarModalRetrasos()">✕</button>
+        </div>
+        <div class="modal-body" id="modal-retrasos-body">
+            <!-- Rellenado dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Personas en Riesgo -->
+<div id="modal-riesgo" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🚨 Personas en Riesgo Alto</h2>
+            <button class="btn-close" onclick="cerrarModalRiesgo()">✕</button>
+        </div>
+        <div class="modal-body" id="modal-riesgo-body">
+            <!-- Rellenado dinámicamente -->
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/dashboard.js?v=20260707-1"></script>
+
+{% endblock %}

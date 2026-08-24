@@ -1,0 +1,305 @@
+/* =====================================================
+   ANALÍTICA
+===================================================== */
+
+.pageHeader{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    margin-bottom:30px;
+
+}
+
+.pageHeader h1{
+
+    font-size:40px;
+
+    color:#173D2D;
+
+    margin-bottom:8px;
+
+}
+
+.pageHeader p{
+
+    color:#666;
+
+    font-size:16px;
+
+}
+
+
+/* =====================================================
+   BOTÓN
+===================================================== */
+
+.primaryButton{
+
+    background:#173D2D;
+
+    color:white;
+
+    border:none;
+
+    padding:12px 24px;
+
+    border-radius:10px;
+
+    cursor:pointer;
+
+    font-weight:600;
+
+    transition:.25s;
+
+}
+
+.primaryButton:hover{
+
+    background:#255340;
+
+}
+
+
+/* =====================================================
+   GRID KPIs
+===================================================== */
+
+.kpiGrid{
+
+    display:grid;
+
+    grid-template-columns:repeat(4,1fr);
+
+    gap:20px;
+
+    margin-bottom:30px;
+
+}
+
+.kpiCard{
+
+    background:white;
+
+    border-radius:16px;
+
+    padding:24px;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+
+}
+
+.kpiCard span{
+
+    display:block;
+
+    color:#777;
+
+    font-size:14px;
+
+    margin-bottom:10px;
+
+}
+
+.kpiCard h2{
+
+    color:#173D2D;
+
+    font-size:34px;
+
+}
+
+
+/* =====================================================
+   GRID PRINCIPAL
+===================================================== */
+
+.grid-expediente{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:25px;
+
+}
+
+.panel{
+
+    background:white;
+
+    border-radius:16px;
+
+    padding:24px;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+
+}
+
+.panel h2{
+
+    color:#173D2D;
+
+    margin-bottom:20px;
+
+}
+
+.panel-full{
+
+    grid-column:1 / -1;
+
+}
+
+
+/* =====================================================
+   TABLAS
+===================================================== */
+
+table{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+thead{
+
+    background:#173D2D;
+
+    color:white;
+
+}
+
+th{
+
+    text-align:left;
+
+    padding:14px;
+
+}
+
+td{
+
+    padding:14px;
+
+    border-bottom:1px solid #eee;
+
+}
+
+tbody tr:hover{
+
+    background:#f4f7f9;
+
+}
+
+
+/* =====================================================
+   ZONAS DE GRÁFICOS
+===================================================== */
+
+#graficoProductividad,
+#graficoErrores,
+#graficoSemana{
+
+    height:260px;
+
+    border:2px dashed #d9d9d9;
+
+    border-radius:12px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:#999;
+
+    font-size:15px;
+
+}
+
+
+/* =====================================================
+   IA
+===================================================== */
+
+#panelIA ul{
+
+    padding-left:20px;
+
+}
+
+#panelIA li{
+
+    margin-bottom:10px;
+
+}
+
+
+/* =====================================================
+   COMPARATIVAS
+===================================================== */
+
+#comparativas{
+
+    min-height:220px;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    color:#888;
+
+    border:2px dashed #ddd;
+
+    border-radius:12px;
+
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media(max-width:1200px){
+
+    .kpiGrid{
+
+        grid-template-columns:repeat(2,1fr);
+
+    }
+
+    .grid-expediente{
+
+        grid-template-columns:1fr;
+
+    }
+
+}
+
+@media(max-width:768px){
+
+    .pageHeader{
+
+        flex-direction:column;
+
+        align-items:flex-start;
+
+        gap:20px;
+
+    }
+
+    .kpiGrid{
+
+        grid-template-columns:1fr;
+
+    }
+
+}

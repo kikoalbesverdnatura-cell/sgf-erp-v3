@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="/static/css/administracion.css?v=2">
+
+<div class="pageHeader">
+
+    <div>
+        <h1>⚙ Administración</h1>
+        <p>Gestión técnica de la plataforma, usuarios, permisos e integraciones.</p>
+    </div>
+
+</div>
+
+<div class="adminGrid">
+
+    <div class="adminCard">
+        <div class="adminIcon">🏢</div>
+        <h2>Empresa</h2>
+        <p>Datos corporativos, centros de trabajo y configuración general.</p>
+    </div>
+
+    <div class="adminCard" onclick="window.location.href='/administracion/usuarios'">
+        <div class="adminIcon">👥</div>
+        <h2>Usuarios</h2>
+        <p>Alta, baja, estado y acceso de usuarios del sistema.</p>
+    </div>
+
+    <div class="adminCard">
+        <div class="adminIcon">🔐</div>
+        <h2>Roles y permisos</h2>
+        <p>Administradores, RRHH, formadores, responsables y consulta.</p>
+    </div>
+
+    <div class="adminCard">
+        <div class="adminIcon">🔗</div>
+        <h2>Integraciones</h2>
+        <p>Google Sheets, Drive, Odoo, Grafana, correo, API e IA.</p>
+    </div>
+
+    <div class="adminCard">
+        <div class="adminIcon">📱</div>
+        <h2>Dispositivos</h2>
+        <p>Tablets, sincronización, estado y versión instalada.</p>
+    </div>
+
+    <div class="adminCard">
+        <div class="adminIcon">🤖</div>
+        <h2>IA</h2>
+        <p>Proveedor, modelo, límites, prompts corporativos y alertas.</p>
+    </div>
+
+    <div class="adminCard">
+        <div class="adminIcon">📋</div>
+        <h2>Auditoría</h2>
+        <p>Registro de cambios, usuarios, fechas y trazabilidad.</p>
+    </div>
+
+    <div class="adminCard">
+        <div class="adminIcon">⚙️</div>
+        <h2>Sistema</h2>
+        <p>Versiones, copias de seguridad, diagnóstico y variables.</p>
+    </div>
+
+</div>
+
+{% endblock %}

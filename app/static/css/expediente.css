@@ -1,0 +1,543 @@
+/* ==========================
+   EXPEDIENTE 360
+========================== */
+
+.expediente{
+
+    display:flex;
+    flex-direction:column;
+    gap:25px;
+
+}
+
+
+/* ==========================
+   CABECERA
+========================== */
+
+.expediente-header{
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:30px;
+
+    display:grid;
+
+    grid-template-columns:140px 1fr 250px;
+
+    gap:30px;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+
+}
+
+
+/* FOTO */
+
+.foto{
+
+    width:120px;
+    height:120px;
+    min-width:120px;
+    min-height:120px;
+    flex-shrink:0;
+
+    border-radius:50%;
+
+    background:#e9ecef;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    font-size:52px;
+
+    overflow:hidden; /* Evitar desbordes de imagen */
+
+}
+
+.foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+
+/* DATOS */
+
+.datos-principales h1{
+
+    margin:0;
+
+    font-size:34px;
+
+    color:#173D2D;
+
+}
+
+.subtitulo{
+
+    margin-top:12px;
+
+    display:flex;
+
+    gap:20px;
+
+    flex-wrap:wrap;
+
+    color:#666;
+
+}
+
+
+/* BADGE */
+
+.badge{
+
+    margin-top:20px;
+
+    display:inline-block;
+
+    padding:8px 16px;
+
+    border-radius:30px;
+
+    background:#e9f7ef;
+
+    color:#198754;
+
+    font-weight:bold;
+
+}
+
+
+/* DERECHA */
+
+.datos-extra{
+
+    display:flex;
+
+    flex-direction:column;
+
+    justify-content:center;
+
+    gap:18px;
+
+}
+
+.datos-extra label{
+
+    color:#999;
+
+    font-size:13px;
+
+    display:block;
+
+}
+
+.datos-extra span{
+
+    font-size:20px;
+
+    font-weight:bold;
+
+}
+
+
+/* ==========================
+   TABS
+========================== */
+
+.tabs{
+
+    display:flex;
+
+    gap:12px;
+
+}
+
+.tabs button{
+
+    border:none;
+
+    background:white;
+
+    border-radius:12px;
+
+    padding:12px 18px;
+
+    cursor:pointer;
+
+    box-shadow:0 4px 10px rgba(0,0,0,.08);
+
+    transition:.25s;
+
+}
+
+.tabs button:hover{
+
+    background:#173D2D;
+
+    color:white;
+
+}
+
+
+/* ==========================
+   KPIS
+========================== */
+
+.kpis{
+
+    display:grid;
+
+    grid-template-columns:repeat(5,1fr);
+
+    gap:20px;
+
+}
+
+.kpi{
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:25px;
+
+    text-align:center;
+
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+
+}
+
+.kpi h3{
+
+    margin-bottom:18px;
+
+    color:#666;
+
+}
+
+.kpi span{
+
+    font-size:36px;
+
+    font-weight:bold;
+
+    color:#173D2D;
+
+}
+
+
+/* ==========================
+   GRID
+========================== */
+
+.grid-expediente{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:20px;
+
+}
+
+.panel{
+
+    background:white;
+
+    border-radius:18px;
+
+    padding:25px;
+
+    box-shadow:0 8px 18px rgba(0,0,0,.08);
+
+}
+
+.panel-full{
+
+    grid-column:1 / span 2;
+
+}
+
+
+/* ==========================
+   CHECKLIST
+========================== */
+
+.tabla-checklist{
+
+    width:100%;
+
+    border-collapse:collapse;
+
+}
+
+.tabla-checklist td{
+
+    padding:10px;
+
+    border-bottom:1px solid #eee;
+
+}
+
+
+/* ==========================
+   TIMELINE DE OBSERVACIONES
+========================== */
+.obs-timeline {
+    position: relative;
+    padding-left: 26px;
+    margin-top: 15px;
+    max-height: 350px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+.obs-timeline::before {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 10px;
+    bottom: 5px;
+    width: 2px;
+    background: #e2e8f0;
+}
+.obs-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+.obs-item::before {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: -21px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #173D2D;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #e2e8f0;
+    z-index: 2;
+}
+.obs-item.tipo-urgente::before {
+    background: #e53e3e;
+    box-shadow: 0 0 0 2px #fed7d7;
+}
+.obs-item.tipo-rendimiento::before {
+    background: #dd6b20;
+    box-shadow: 0 0 0 2px #feebc8;
+}
+.obs-item.tipo-ausencia::before {
+    background: #3182ce;
+    box-shadow: 0 0 0 2px #bee3f8;
+}
+.obs-header {
+    font-size: 0.8em;
+    color: #718096;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.obs-author {
+    font-weight: 700;
+    color: #2d3748;
+}
+.obs-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.obs-badge.General { background: #e2e8f0; color: #4a5568; }
+.obs-badge.Rendimiento { background: #feebc8; color: #c05621; }
+.obs-badge.Urgente { background: #fed7d7; color: #9b2c2c; }
+.obs-badge.Ausencia { background: #bee3f8; color: #2b6cb0; }
+.obs-text {
+    font-size: 0.9em;
+    color: #2d3748;
+    line-height: 1.4;
+    background: #f7fafc;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin: 4px 0 0 0;
+    white-space: pre-wrap;
+    border: 1px solid #edf2f7;
+}
+
+
+/* ======================================================
+   ESTILOS DE IMPRESIÓN (PDF)
+====================================================== */
+@media print {
+    /* 1. Ocultar la barra lateral (sidebar) y botón flotante */
+    .sidebar,
+    #btn-floating-view,
+    #btn-imprimir-expediente,
+    #link-grafana,
+    #link-salix,
+    .quickActions,
+    #btn-guardar-observation,
+    #btn-mic-observaciones,
+    select,
+    input,
+    label,
+    .expediente-actions,
+    form,
+    #nueva-observacion-texto,
+    /* Ocultar formulario de agregar observaciones */
+    [style*="background: #fafbfc"],
+    [style*="background:#fafbfc"] {
+        display: none !important;
+    }
+
+    /* 2. El layout debe tomar el 100% de la página sin flex side-by-side */
+    body, html {
+        background: white !important;
+        color: black !important;
+        font-size: 11pt !important;
+    }
+    
+    .layout {
+        display: block !important;
+        width: 100% !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    .content {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .expediente {
+        display: block !important;
+        gap: 0 !important;
+    }
+
+    .expediente-header {
+        box-shadow: none !important;
+        border: 1px solid #edf2f7 !important;
+        border-radius: 12px !important;
+        margin-bottom: 20px !important;
+        page-break-inside: avoid;
+    }
+
+    /* 3. Desactivar flex en columnas para apilar verticalmente */
+    .expediente > div {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    .panel {
+        box-shadow: none !important;
+        border: 1px solid #edf2f7 !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+        background: white !important;
+        page-break-inside: avoid;
+    }
+
+    /* 3.1. Ocultar el Checklist en el PDF impreso */
+    #checklist-panel {
+        display: none !important;
+    }
+
+    /* 3.2. Forzar foto redonda y sin distorsión en PDF */
+    .foto {
+        width: 120px !important;
+        height: 120px !important;
+        min-width: 120px !important;
+        min-height: 120px !important;
+        flex-shrink: 0 !important;
+        border-radius: 50% !important;
+        overflow: hidden !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    .foto img {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 50% !important;
+        object-fit: cover !important;
+    }
+
+    /* 4. Forzar que las cajas con scrollbar vertical muestren todo el contenido */
+    .obs-timeline,
+    #fichajes-container,
+    #turnos-wrapper {
+        max-height: none !important;
+        overflow: visible !important;
+        padding-right: 0 !important;
+    }
+
+    /* 5. Asegurar contrastes y dimensiones en tablas e imágenes/canvas */
+    #timeline-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+        page-break-inside: auto !important;
+    }
+
+    #contenedor-canvas-grafico {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 320px !important;
+    }
+
+    table {
+        width: 100% !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        box-shadow: none !important;
+        border: 1px solid #edf2f7 !important;
+    }
+
+    thead {
+        background: #173D2D !important;
+        color: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    th, td {
+        padding: 4px 2px !important;
+        font-size: 7pt !important;
+        text-align: center !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        border-bottom: 1px solid #edf2f7 !important;
+    }
+
+    th:nth-child(1), td:nth-child(1) { width: 12% !important; text-align: left !important; } /* Fecha */
+    th:nth-child(2), td:nth-child(2) { width: 7% !important; } /* Líneas */
+    th:nth-child(3), td:nth-child(3) { width: 11% !important; } /* Prod. */
+    th:nth-child(4), td:nth-child(4) { width: 7% !important; } /* Tiempo */
+    th:nth-child(5), td:nth-child(5) { width: 7% !important; } /* Lín/Hora */
+    th:nth-child(6), td:nth-child(6) { width: 7% !important; } /* Errores */
+    th:nth-child(7), td:nth-child(7) { width: 7% !important; } /* % Err */
+    th:nth-child(8), td:nth-child(8) { width: 6% !important; } /* Nivel */
+    th:nth-child(9), td:nth-child(9) { width: 6% !important; } /* Cant. */
+    th:nth-child(10), td:nth-child(10) { width: 6% !important; } /* Salto */
+    th:nth-child(11), td:nth-child(11) { width: 6% !important; } /* Prod.Eq. */
+    th:nth-child(12), td:nth-child(12) { width: 6% !important; } /* Desord. */
+    th:nth-child(13), td:nth-child(13) { width: 6% !important; } /* M.Etiq. */
+    th:nth-child(14), td:nth-child(14) { width: 6% !important; } /* Maltrato */
+    th:nth-child(15), td:nth-child(15) { width: 6% !important; } /* Cambio */
+}

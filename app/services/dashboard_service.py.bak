@@ -1,0 +1,916 @@
+from datetime import date, datetime, timedelta
+from collections import defaultdict
+import time
+import threading
+
+from app.services.google_service import abrir_documento
+
+
+DOCUMENTO = "DB_FORMACION_VERDNATURA"
+HOJA = "MAESTRO_PERSONAS"
+
+
+DEPARTAMENTOS_SEGUIMIENTO = [
+    "TALLER NATURAL",
+    "SACADO H",
+    "SACADO V",
+    "SACADO PREVIA",
+    "PRODUCCION",
+    "PRODUCCIÓN",
+    "ENCAJADO",
+    "ENCAJADO H",
+    "ENCAJADO V",
+]
+
+
+CHECKLIST_INICIAL = [
+    ("RRHH", "rrhh"),
+    ("Almuerzo", "almuerzo"),
+    ("Uniforme", "uniforme"),
+    ("Psicotécnico", "psicotecnico"),
+    ("Formación bienvenida", "formacion"),
+    ("Tour empresa", "tour"),
+]
+
+
+# Caché global en memoria para los datos de Google Sheets
+_cache_datos = None
+_cache_timestamp = 0.0
+_cache_lock = threading.Lock()
+CACHE_TTL_SEGUNDOS = 300  # 5 minutos de tiempo de vida (TTL)
+
+def obtener_dashboard(forzar_refresco=False):
+    global _cache_datos, _cache_timestamp
+
+    ahora = time.time()
+    if not forzar_refresco:
+        with _cache_lock:
+            if _cache_datos is not None and (ahora - _cache_timestamp) < CACHE_TTL_SEGUNDOS:
+                return _cache_datos
+
+    documento = abrir_documento(DOCUMENTO)
+    hoja = documento.worksheet(HOJA)
+    filas = hoja.get_all_records()
+
+    personas = []
+    for f in filas:
+        id_val = str(f.get("ID_Trabajador", "")).strip()
+        nombre_val = str(f.get("NOMBRE_COMPLETO", "")).strip()
+        if not id_val or id_val.startswith("#") or not nombre_val:
+            continue
+        personas.append(normalizar_persona(f))
+
+    resultado = {
+        "kpis": calcular_kpis(personas),
+        "incorporaciones": {
+            "total": contar_nuevas_incorporaciones(personas),
+            "hoy": obtener_incorporaciones_por_rango(personas, "hoy"),
+            "manana": obtener_incorporaciones_por_rango(personas, "manana"),
+            "semana": obtener_incorporaciones_por_rango(personas, "semana"),
+            "quincena": obtener_incorporaciones_por_rango(personas, "quincena"),
+            "mes": obtener_incorporaciones_por_rango(personas, "mes"),
+        },
+        "proximasEntradas": obtener_proximas_entradas(personas),
+        "personasSeguimiento": obtener_personas_seguimiento(personas),
+        "estadoPrograma": obtener_estado_programa(personas),
+        "departamentos": obtener_departamentos(personas),
+        "pda": obtener_pda(personas),
+        "checklistPendiente": obtener_checklist_pendiente(personas),
+        "personasRiesgo": obtener_personas_riesgo(personas),
+        "alertas": obtener_alertas(personas),
+        "productividad": obtener_productividad_resumen(personas),
+        "timeline": [],
+        "formadores": obtener_formadores(personas),
+        "retrasos": obtener_retrasos_trabajadores(personas),
+        "erroresConsecutivos": obtener_errores_consecutivos(personas),
+    }
+
+    with _cache_lock:
+        _cache_datos = resultado
+        _cache_timestamp = ahora
+
+    return resultado
+
+
+def normalizar_persona(p):
+    from app.services.persona_service import obtener_overrides
+    w_id = str(p.get("ID_Trabajador", "")).strip()
+    overrides = obtener_overrides()
+    worker_overrides = overrides.get(w_id, {})
+    
+    dept = worker_overrides.get("departamento", str(p.get("DEPARTAMENTO_ORIGEN", "")).strip())
+
+    hora_entrada = worker_overrides.get("hora_entrada", "08:00")
+
+    persona = {
+        "id": p.get("ID_Trabajador", ""),
+        "nombre": p.get("NOMBRE_COMPLETO", ""),
+        "programa": p.get("TIPO_PROGRAMA", ""),
+        "fecha": convertir_fecha(p.get("FECHA_INCORPORACION", "")),
+        "fecha_texto": str(p.get("FECHA_INCORPORACION", "")).strip(),
+        "departamento": dept,
+        "hora": hora_entrada,
+        "estado": str(p.get("ESTADO", "")).strip(),
+        "dias": p.get("DIAS_EN_SEGUIMIENTO", ""),
+        "dias_restantes": p.get("DIAS_RESTANTES", ""),
+        "riesgo": str(p.get("RIESGO", "")).strip(),
+        "riesgo_score": p.get("RIESGO_SCORE", ""),
+        "tutor": str(p.get("TUTOR_ASIGNADO", "") or p.get("Formador", "")).strip(),
+
+        "rrhh": p.get("RRHH", ""),
+        "almuerzo": p.get("ALMUERZO", ""),
+        "uniforme": p.get("UNIFORME", ""),
+        "psicotecnico": p.get("PSICOTECNICO", ""),
+        "formacion": p.get("FORMACION_BIENVENIDA", ""),
+        "tour": p.get("TOUR_EMPRESA", ""),
+
+        "pda": p.get("PDA_ENTREGADA", ""),
+        "pda_documento": p.get("PDA_DOCUMENTO", ""),
+        "pda_fecha": p.get("PDA_FECHA_FIRMA", ""),
+
+        "productividad_media": p.get("PRODUCTIVIDAD_MEDIA", ""),
+        "error_medio": p.get("ERROR_MEDIO", ""),
+        "ultima_fecha_grafana": p.get("ULTIMA_FECHA_GRAFANA", ""),
+        "observaciones": p.get("Observaciones", ""),
+    }
+
+    checklist = calcular_checklist(persona)
+
+    persona["checklist_total"] = checklist["total"]
+    persona["checklist_completado"] = checklist["completado"]
+    persona["checklist_porcentaje"] = checklist["porcentaje"]
+    persona["checklist_pendientes"] = checklist["pendientes"]
+
+    return persona
+
+
+def normalizar_texto(valor):
+    val = str(valor or "").upper().strip()
+    val = " ".join(val.split())
+    val = val.replace("TALLLER", "TALLER")
+    return val
+
+
+def convertir_fecha(valor):
+    if not valor:
+        return None
+
+    if isinstance(valor, datetime):
+        return valor.date()
+
+    if isinstance(valor, date):
+        return valor
+
+    texto = str(valor).strip()
+
+    for formato in ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"]:
+        try:
+            return datetime.strptime(texto, formato).date()
+        except ValueError:
+            pass
+
+    return None
+
+
+def convertir_numero(valor):
+    if valor in [None, ""]:
+        return None
+
+    try:
+        return float(str(valor).replace("%", "").replace(",", ".").strip())
+    except Exception:
+        return None
+
+
+def es_check(valor):
+    return normalizar_texto(valor) in [
+        "TRUE",
+        "SI",
+        "SÍ",
+        "1",
+        "X",
+        "OK",
+        "HECHO",
+        "COMPLETADO",
+    ]
+
+
+def es_departamento_seguimiento(departamento):
+    dep = normalizar_texto(departamento)
+
+    return any(normalizar_texto(d) in dep for d in DEPARTAMENTOS_SEGUIMIENTO)
+
+
+def es_persona_activa(persona):
+    estado_normalizado = normalizar_texto(persona.get("estado"))
+    return estado_normalizado not in ("TERMINADO", "FINALIZADO", "NO APTO")
+
+
+def es_nueva_incorporacion(persona):
+    return "NUEVA" in normalizar_texto(persona.get("programa"))
+
+
+def es_mili(persona):
+    return "MILI" in normalizar_texto(persona.get("programa"))
+
+
+def calcular_kpis(personas):
+    nuevas = 0
+    mili = 0
+    seguimiento = 0
+    riesgo = 0
+    formadores = set()
+    pda_entregadas = 0
+
+    for p in personas:
+        if es_nueva_incorporacion(p):
+            nuevas += 1
+
+        if es_mili(p):
+            mili += 1
+
+        if es_departamento_seguimiento(p["departamento"]) and es_persona_activa(p):
+            seguimiento += 1
+
+            if es_check(p.get("pda")):
+                pda_entregadas += 1
+
+        if normalizar_texto(p["riesgo"]) == "ALTO" and es_persona_activa(p):
+            riesgo += 1
+
+        if p["tutor"]:
+            formadores.add(p["tutor"])
+
+    return {
+        "enSeguimiento": seguimiento,
+        "nuevas": nuevas,
+        "mili": mili,
+        "formadores": len(formadores),
+        "riesgoAlto": riesgo,
+        "pdaEntregadas": pda_entregadas,
+    }
+
+
+def contar_nuevas_incorporaciones(personas):
+    return len([p for p in personas if es_nueva_incorporacion(p)])
+
+
+def obtener_incorporaciones_por_rango(personas, rango):
+    hoy = date.today()
+
+    if rango == "hoy":
+        inicio = hoy
+        fin = hoy
+    elif rango == "manana":
+        inicio = hoy + timedelta(days=1)
+        fin = inicio
+    elif rango == "semana":
+        inicio = hoy
+        fin = hoy + timedelta(days=6)
+    elif rango == "quincena":
+        inicio = hoy
+        fin = hoy + timedelta(days=14)
+    elif rango == "mes":
+        inicio = hoy
+        fin = hoy + timedelta(days=30)
+    else:
+        inicio = None
+        fin = None
+
+    resultado = []
+
+    for p in personas:
+        if not es_nueva_incorporacion(p):
+            continue
+
+        if not es_departamento_seguimiento(p["departamento"]):
+            continue
+
+        if inicio and fin:
+            if not p["fecha"] or not (inicio <= p["fecha"] <= fin):
+                continue
+
+        resultado.append(serializar_persona_dashboard(p))
+
+    return ordenar_por_fecha(resultado)
+
+
+def obtener_proximas_entradas(personas):
+    hoy = date.today()
+    fin = hoy + timedelta(days=14)
+    grupos = defaultdict(list)
+
+    for p in personas:
+        if not es_departamento_seguimiento(p["departamento"]):
+            continue
+
+        if not p["fecha"]:
+            continue
+
+        if not (hoy <= p["fecha"] <= fin):
+            continue
+
+        grupos[p["fecha"].strftime("%d/%m/%Y")].append(serializar_persona_dashboard(p))
+
+    resultado = []
+
+    for fecha_txt, items in grupos.items():
+        resultado.append({
+            "fecha": fecha_txt,
+            "personas": ordenar_por_hora(items),
+            "total": len(items),
+        })
+
+    return sorted(resultado, key=lambda x: convertir_fecha(x["fecha"]) or date.max)
+
+
+def obtener_personas_seguimiento(personas):
+    return [
+        serializar_persona_dashboard(p)
+        for p in personas
+        if es_departamento_seguimiento(p["departamento"]) and es_persona_activa(p)
+    ]
+
+
+def obtener_estado_programa(personas):
+    estados = {
+        "Onboarding": {"total": 0, "personas": []},
+        "Shadow": {"total": 0, "personas": []},
+        "Libre": {"total": 0, "personas": []},
+        "Equipo": {"total": 0, "personas": []},
+    }
+
+    mapa = {
+        "ONBOARDING": "Onboarding",
+        "ACOMPAÑAMIENTO": "Onboarding",
+        "RONDA EQUIPOS": "Onboarding",
+        
+        "SHADOW": "Shadow",
+        "SACADO H": "Shadow",
+        
+        "LIBRE": "Libre",
+        "LIBRE FASE 1": "Libre",
+        "LIBRE FASE 2": "Libre",
+        
+        "EQUIPO": "Equipo",
+        "MENTOR": "Equipo",
+    }
+
+    for p in personas:
+        if not es_departamento_seguimiento(p["departamento"]) or not es_persona_activa(p):
+            continue
+
+        clave = mapa.get(normalizar_texto(p["estado"]))
+
+        if clave:
+            estados[clave]["total"] += 1
+            estados[clave]["personas"].append(serializar_persona_dashboard(p))
+
+    return estados
+
+
+def obtener_departamentos(personas):
+    departamentos = {}
+
+    for p in personas:
+        if not es_departamento_seguimiento(p["departamento"]) or not es_persona_activa(p):
+            continue
+
+        dep = p["departamento"] or "Sin departamento"
+
+        if dep not in departamentos:
+            departamentos[dep] = {"total": 0, "personas": []}
+
+        departamentos[dep]["total"] += 1
+        departamentos[dep]["personas"].append(serializar_persona_dashboard(p))
+
+    return departamentos
+
+
+def obtener_pda(personas):
+    activas = [
+        p for p in personas
+        if es_departamento_seguimiento(p["departamento"]) and es_persona_activa(p)
+    ]
+
+    entregadas = len([p for p in activas if es_check(p.get("pda"))])
+    firmadas = len([p for p in activas if es_check(p.get("pda_documento"))])
+
+    total = len(activas)
+
+    return {
+        "total": total,
+        "entregadas": entregadas,
+        "pendientes": max(total - entregadas, 0),
+        "firmadas": firmadas,
+        "sinFirmar": max(entregadas - firmadas, 0),
+    }
+
+
+def calcular_checklist(persona):
+    total = len(CHECKLIST_INICIAL)
+    completado = 0
+    pendientes = []
+
+    for nombre, campo in CHECKLIST_INICIAL:
+        if es_check(persona.get(campo)):
+            completado += 1
+        else:
+            pendientes.append(nombre)
+
+    porcentaje = round((completado / total) * 100) if total else 0
+
+    return {
+        "total": total,
+        "completado": completado,
+        "pendientes": pendientes,
+        "porcentaje": porcentaje,
+    }
+
+
+def obtener_checklist_pendiente(personas):
+    resumen = {
+        "RRHH": 0,
+        "Almuerzo": 0,
+        "Uniforme": 0,
+        "Psicotécnico": 0,
+        "Formación bienvenida": 0,
+        "Tour empresa": 0,
+    }
+
+    personas_pendientes = []
+
+    for p in personas:
+        if not es_departamento_seguimiento(p["departamento"]) or not es_persona_activa(p):
+            continue
+
+        pendientes = p.get("checklist_pendientes", [])
+
+        if pendientes:
+            personas_pendientes.append(serializar_persona_dashboard(p))
+
+            for item in pendientes:
+                if item in resumen:
+                    resumen[item] += 1
+
+    return {
+        "resumen": resumen,
+        "personas": personas_pendientes,
+    }
+
+
+def obtener_personas_riesgo(personas):
+    return [
+        serializar_persona_dashboard(p)
+        for p in personas
+        if es_departamento_seguimiento(p["departamento"])
+        and es_persona_activa(p)
+        and normalizar_texto(p["riesgo"]) == "ALTO"
+    ]
+
+
+def obtener_alertas(personas):
+    alertas = []
+
+    for p in personas:
+        if not es_departamento_seguimiento(p["departamento"]) or not es_persona_activa(p):
+            continue
+
+        if not p["tutor"]:
+            alertas.append({
+                "tipo": "Sin tutor",
+                "mensaje": f"{p['nombre']} no tiene tutor asignado.",
+                "persona": serializar_persona_dashboard(p),
+            })
+
+        if p["checklist_porcentaje"] < 100 and p["fecha"] == date.today():
+            alertas.append({
+                "tipo": "Checklist incompleto",
+                "mensaje": f"{p['nombre']} entra hoy y tiene checklist incompleto.",
+                "persona": serializar_persona_dashboard(p),
+            })
+
+    return alertas
+
+
+def obtener_productividad_resumen(personas):
+    productividades = []
+    errores = []
+
+    for p in personas:
+        if not es_departamento_seguimiento(p["departamento"]) or not es_persona_activa(p):
+            continue
+
+        prod = convertir_numero(p.get("productividad_media"))
+        err = convertir_numero(p.get("error_medio"))
+
+        if prod is not None:
+            productividades.append(prod)
+
+        if err is not None:
+            errores.append(err)
+
+    return {
+        "media": round(sum(productividades) / len(productividades), 2) if productividades else 0,
+        "personas": len(productividades),
+        "errorMedio": round(sum(errores) / len(errores), 2) if errores else 0,
+    }
+
+
+def obtener_formadores(personas):
+    formadores = {}
+
+    for p in personas:
+        tutor = p.get("tutor", "").strip()
+
+        if not tutor:
+            continue
+
+        if tutor not in formadores:
+            formadores[tutor] = {"nombre": tutor, "total": 0, "personas": []}
+
+        formadores[tutor]["total"] += 1
+        formadores[tutor]["personas"].append(serializar_persona_dashboard(p))
+
+    return list(formadores.values())
+
+
+def serializar_persona_dashboard(p):
+    return {
+        "id": p.get("id"),
+        "nombre": p.get("nombre"),
+        "programa": p.get("programa"),
+        "departamento": p.get("departamento"),
+        "hora": p.get("hora"),
+        "fecha": p["fecha"].strftime("%d/%m/%Y") if p.get("fecha") else "",
+        "estado": p.get("estado"),
+        "dias": p.get("dias"),
+        "diasRestantes": p.get("dias_restantes"),
+        "riesgo": p.get("riesgo"),
+        "tutor": p.get("tutor"),
+        "checklist": {
+            "total": p.get("checklist_total"),
+            "completado": p.get("checklist_completado"),
+            "porcentaje": p.get("checklist_porcentaje"),
+            "pendientes": p.get("checklist_pendientes"),
+        },
+        "url": f"/expediente/{p.get('id')}",
+    }
+
+
+def ordenar_por_fecha(items):
+    return sorted(items, key=lambda x: convertir_fecha(x.get("fecha")) or date.max)
+
+
+def ordenar_por_hora(items):
+    return sorted(items, key=lambda x: str(x.get("hora") or ""))
+
+
+def obtener_retrasos_trabajadores(personas):
+    try:
+        from app.services.grafana.client import GrafanaClient
+        from app.services.grafana.dashboard import DashboardService
+        from app.services.grafana.config import GRAFANA_URL
+        import os
+        from datetime import time, datetime
+        
+        # 1. Inicializar cliente
+        client = GrafanaClient(base_url=GRAFANA_URL)
+        service = DashboardService(client)
+        
+        # 2. Consultar Fichajes diarios / Teléfonos (98ef54c2-0ab6-473e-bff7-8d3682eab132), Panel ID 1
+        dashboard_uid = "98ef54c2-0ab6-473e-bff7-8d3682eab132"
+        panel_id = 1
+        
+        queries = service.get_panel_queries(dashboard_uid, panel_id)
+        result = client.query_datasource(queries, from_time="now-14d", to_time="now")
+        
+        rows = []
+        if "results" in result:
+            for ref_id, res in result["results"].items():
+                for frame in res.get("frames", []):
+                    schema = frame.get("schema", {})
+                    fields = schema.get("fields", [])
+                    names = [f.get("name") for f in fields]
+                    data = frame.get("data", {})
+                    values = data.get("values", [])
+                    if values:
+                        rows = [dict(zip(names, row)) for row in zip(*values)]
+                        
+        # 3. Procesar fichajes (Entrada)
+        clockins_by_worker = {}
+        for r in rows:
+            if r.get("Fichaje") != "Entrada":
+                continue
+            w_name = str(r.get("trabajador") or "").upper().strip()
+            w_name = " ".join(w_name.split())
+            fecha = r.get("fecha")
+            hora = r.get("hora")
+            if not w_name or not fecha or not hora:
+                continue
+            if w_name not in clockins_by_worker:
+                clockins_by_worker[w_name] = {}
+            # Mantener el primer fichaje de entrada del día
+            if fecha not in clockins_by_worker[w_name]:
+                clockins_by_worker[w_name][fecha] = hora
+            elif hora < clockins_by_worker[w_name][fecha]:
+                clockins_by_worker[w_name][fecha] = hora
+                
+        # 4. Mapear y calcular impuntualidad
+        persona_by_name = {}
+        for p in personas:
+            name_norm = " ".join(str(p.get("nombre") or "").upper().split())
+            if name_norm:
+                persona_by_name[name_norm] = p
+                
+        def parse_time(t_str):
+            try:
+                parts = list(map(int, t_str.split(":")))
+                if len(parts) >= 2:
+                    return time(parts[0], parts[1])
+            except Exception:
+                pass
+            return None
+            
+        retrasos_report = []
+        for w_name, dates in clockins_by_worker.items():
+            p = persona_by_name.get(w_name)
+            if not p:
+                continue
+                
+            expected_str = p.get("hora") or "08:00"
+            expected_t = parse_time(expected_str)
+            if not expected_t:
+                expected_t = time(8, 0)
+                
+            late_days = []
+            for fecha, hora in dates.items():
+                actual_t = parse_time(hora)
+                if not actual_t:
+                    continue
+                min_diff = (actual_t.hour * 60 + actual_t.minute) - (expected_t.hour * 60 + expected_t.minute)
+                if 1 <= min_diff <= 120:
+                    late_days.append({
+                        "fecha": fecha,
+                        "hora_fichaje": hora,
+                        "hora_esperada": expected_str,
+                        "minutos_retraso": min_diff
+                    })
+            
+            # Ordenar días de retraso cronológicamente (más recientes primero)
+            def parse_date_sort(d_str):
+                try:
+                    return datetime.strptime(d_str, "%d/%m/%Y")
+                except Exception:
+                    return datetime.min
+            late_days.sort(key=lambda x: parse_date_sort(x["fecha"]), reverse=True)
+            
+            if len(late_days) >= 3:
+                retrasos_report.append({
+                    "id": p["id"],
+                    "nombre": p["nombre"],
+                    "departamento": p.get("departamento", ""),
+                    "retrasos_count": len(late_days),
+                    "dias": late_days
+                })
+                
+        retrasos_report.sort(key=lambda x: x["retrasos_count"], reverse=True)
+        return retrasos_report
+        
+    except Exception as e:
+        print(f"❌ Error al obtener retrasos desde Grafana: {e}")
+        return []
+
+
+def obtener_fichajes_individuales(id_trabajador, cookies=None):
+    from app.services.persona_service import obtener_persona
+    from app.services.grafana.client import GrafanaClient
+    from app.services.grafana.dashboard import DashboardService
+    from app.services.grafana.config import GRAFANA_URL
+    from datetime import datetime, time
+    
+    try:
+        persona = obtener_persona(id_trabajador)
+        if not persona or "error" in persona:
+            return {"ok": False, "error": "Trabajador no encontrado"}
+            
+        nombre_norm = " ".join(str(persona.get("nombre") or "").upper().split())
+        if not nombre_norm:
+            return {"ok": True, "fichajes": []}
+            
+        expected_str = persona.get("hora_entrada") or persona.get("hora") or "08:00"
+        try:
+            parts = list(map(int, expected_str.split(":")))
+            expected_t = time(parts[0], parts[1])
+        except Exception:
+            expected_t = time(8, 0)
+            
+        client = GrafanaClient(base_url=GRAFANA_URL, cookies=cookies)
+        service = DashboardService(client)
+        
+        dashboard_uid = "98ef54c2-0ab6-473e-bff7-8d3682eab132"
+        panel_id = 1
+        
+        queries = service.get_panel_queries(dashboard_uid, panel_id)
+        result = client.query_datasource(queries, from_time="now-30d", to_time="now")
+        
+        rows = []
+        if "results" in result:
+            for ref_id, res in result["results"].items():
+                for frame in res.get("frames", []):
+                    schema = frame.get("schema", {})
+                    fields = schema.get("fields", [])
+                    names = [f.get("name") for f in fields]
+                    data = frame.get("data", {})
+                    values = data.get("values", [])
+                    if values:
+                        rows = [dict(zip(names, row)) for row in zip(*values)]
+                        
+        # Procesar los fichajes para este trabajador
+        fichajes_por_dia = {}
+        for r in rows:
+            w_name = str(r.get("trabajador") or "").upper().strip()
+            w_name = " ".join(w_name.split())
+            if w_name != nombre_norm:
+                continue
+                
+            fecha = r.get("fecha")
+            hora = r.get("hora")
+            tipo = r.get("Fichaje") # "Entrada" o "Salida"
+            
+            if not fecha or not hora or not tipo:
+                continue
+                
+            if fecha not in fichajes_por_dia:
+                fichajes_por_dia[fecha] = {"entrada": None, "salida": None}
+                
+            if tipo == "Entrada":
+                if not fichajes_por_dia[fecha]["entrada"] or hora < fichajes_por_dia[fecha]["entrada"]:
+                    fichajes_por_dia[fecha]["entrada"] = hora
+            elif tipo == "Salida":
+                if not fichajes_por_dia[fecha]["salida"] or hora > fichajes_por_dia[fecha]["salida"]:
+                    fichajes_por_dia[fecha]["salida"] = hora
+                    
+        # Formatear el listado
+        listado = []
+        for fecha, datos in fichajes_por_dia.items():
+            entrada = datos["entrada"]
+            salida = datos["salida"]
+            
+            desviacion_str = "-"
+            es_retraso = False
+            minutos = 0
+            
+            if entrada:
+                try:
+                    parts = list(map(int, entrada.split(":")))
+                    actual_t = time(parts[0], parts[1])
+                    diff_mins = (actual_t.hour * 60 + actual_t.minute) - (expected_t.hour * 60 + expected_t.minute)
+                    if diff_mins >= 1:
+                        desviacion_str = f"+{diff_mins} min"
+                        minutos = diff_mins
+                        es_retraso = True
+                    else:
+                        desviacion_str = "0 min"
+                        minutos = 0
+                except Exception:
+                    pass
+                    
+            listado.append({
+                "fecha": fecha,
+                "entrada": entrada or "-",
+                "salida": salida or "-",
+                "esperada": expected_str,
+                "desviacion": desviacion_str,
+                "minutos": minutos,
+                "es_retraso": es_retraso
+            })
+            
+        # Ordenar por fecha cronológicamente descendente
+        def parse_date_sort(d_str):
+            try:
+                return datetime.strptime(d_str, "%d/%m/%Y")
+            except Exception:
+                return datetime.min
+        listado.sort(key=lambda x: parse_date_sort(x["fecha"]), reverse=True)
+        
+        return {"ok": True, "fichajes": listado}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def obtener_errores_consecutivos(personas):
+    try:
+        from app.services.grafana.client import GrafanaClient
+        from app.services.grafana.config import GRAFANA_URL
+        from datetime import datetime
+        from collections import defaultdict
+        import logging
+        
+        logger = logging.getLogger("services.dashboard.errores_consecutivos")
+        
+        # 1. Obtener IDs de trabajadores activos
+        worker_ids = [str(p["id"]) for p in personas if str(p.get("id", "")).isdigit()]
+        if not worker_ids:
+            return []
+            
+        sql = f"""
+        SELECT 
+            w.id AS worker_id,
+            CONCAT_WS(' ', w.firstName, w.lastName) AS worker_name,
+            DATE(st.created) AS fecha,
+            IFNULL(errores_data.cantidad_errores, 0) AS total_errores_dia
+        FROM saleTracking st
+        JOIN sale s ON s.id = st.saleFk
+        JOIN state sta ON sta.id = st.stateFk
+        JOIN worker w ON w.id = st.workerFk
+        LEFT JOIN (
+            SELECT 
+                DATE(sm.created) AS fecha_err,
+                COUNT(*) AS cantidad_errores,
+                st_inner.workerFk
+            FROM saleMistake sm
+            JOIN mistakeType mt ON mt.id = sm.typeFk
+            JOIN sale s_inner ON s_inner.id = sm.saleFk
+            JOIN saleTracking st_inner ON s_inner.id = st_inner.saleFk
+            JOIN state sta_inner ON sta_inner.id = st_inner.stateFk
+            WHERE sta_inner.code IN ('PREPARED', 'PREVIOUS_PREPARATION', 'OK PREVIOUS')
+              AND mt.description NOT IN ('Presentación Excelente')
+            GROUP BY fecha_err, st_inner.workerFk
+        ) errores_data ON errores_data.fecha_err = DATE(st.created) AND errores_data.workerFk = w.id
+        WHERE sta.code = 'PREPARED'
+          AND st.created >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+          AND s.quantity > 0
+          AND w.id IN ({','.join(worker_ids)})
+        GROUP BY w.id, DATE(st.created)
+        ORDER BY w.id, fecha ASC
+        """
+        
+        client = GrafanaClient(base_url=GRAFANA_URL)
+        payload = [
+            {
+                "refId": "A",
+                "datasource": {"uid": "000000003"},
+                "rawSql": sql,
+                "format": "table"
+            }
+        ]
+        result = client.query_datasource(payload)
+        
+        rows = []
+        if "results" in result:
+            for ref_id, res in result["results"].items():
+                for frame in res.get("frames", []):
+                    schema = frame.get("schema", {})
+                    fields = schema.get("fields", [])
+                    names = [f.get("name") for f in fields]
+                    data = frame.get("data", {})
+                    values = data.get("values", [])
+                    if values:
+                        rows = [dict(zip(names, row)) for row in zip(*values)]
+                        
+        worker_history = defaultdict(list)
+        for r in rows:
+            worker_history[str(r["worker_id"])].append(r)
+            
+        detected = []
+        for w_id, history in worker_history.items():
+            consec_days = []
+            has_alert = False
+            max_consec = []
+            
+            for h in history:
+                err = int(h["total_errores_dia"])
+                if err > 5:
+                    consec_days.append(h)
+                    if len(consec_days) >= 3:
+                        has_alert = True
+                        max_consec = list(consec_days)
+                else:
+                    consec_days = []
+            
+            if has_alert:
+                p_sheet = next((p for p in personas if str(p["id"]) == w_id), {})
+                days_formatted = []
+                for d in max_consec[-3:]:
+                    try:
+                        if isinstance(d["fecha"], (int, float)):
+                            dt_str = datetime.fromtimestamp(d["fecha"]/1000).strftime("%d/%m")
+                        else:
+                            dt_str = str(d["fecha"])
+                    except Exception:
+                        dt_str = str(d["fecha"])
+                    days_formatted.append(f"{dt_str} ({int(d['total_errores_dia'])} err)")
+                
+                detected.append({
+                    "id": w_id,
+                    "nombre": p_sheet.get("nombre") or max_consec[0]["worker_name"],
+                    "departamento": p_sheet.get("departamento") or "Varios",
+                    "tutor": p_sheet.get("tutor") or "Sin tutor",
+                    "dias_detalles": ", ".join(days_formatted),
+                    "url": f"/expediente/{w_id}"
+                })
+        return detected
+    except Exception as e:
+        logger.error(f"Error en obtener_errores_consecutivos: {e}")
+        return []

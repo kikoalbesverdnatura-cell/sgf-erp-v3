@@ -1,0 +1,68 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - SGF ERP</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f9; display: flex; height: 100vh; justify-content: center; align-items: center;">
+
+    <div class="login-card" style="background: white; border-radius: 16px; padding: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 360px; border: 1px solid #edf2f7; display: flex; flex-direction: column; align-items: center; box-sizing: border-box;">
+        
+        <div style="font-size: 3em; margin-bottom: 10px;">🗓️</div>
+        <h1 style="margin: 0 0 8px 0; font-size: 1.6em; color: #173D2D; font-weight: 800;">SGF ERP</h1>
+        <p style="margin: 0 0 30px 0; font-size: 0.88em; color: #718096; text-align: center;">Departamento de Formación</p>
+        
+        <form id="login-form" onsubmit="handleLogin(event)" style="width: 100%; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box;">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="username" style="font-size: 0.8em; font-weight: 700; color: #4a5568;">Usuario</label>
+                <input type="text" id="username" required placeholder="Introduce tu usuario" style="padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.92em; outline: none; transition: border 0.15s ease;">
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="password" style="font-size: 0.8em; font-weight: 700; color: #4a5568;">Contraseña</label>
+                <input type="password" id="password" required placeholder="Introduce tu contraseña" style="padding: 10px 14px; border: 1px solid #cbd5e0; border-radius: 8px; font-size: 0.92em; outline: none; transition: border 0.15s ease;">
+            </div>
+            
+            <div id="error-message" style="display: none; color: #e53e3e; font-size: 0.82em; font-weight: 600; text-align: center; margin-top: 5px;">
+                Usuario o contraseña incorrectos
+            </div>
+            
+            <button type="submit" style="background: #173D2D; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 700; font-size: 0.95em; cursor: pointer; transition: background 0.15s ease; margin-top: 10px; width: 100%;">
+                Iniciar Sesión
+            </button>
+        </form>
+    </div>
+
+    <script>
+        async function handleLogin(e) {
+            e.preventDefault();
+            const usernameInput = document.getElementById("username").value;
+            const passwordInput = document.getElementById("password").value;
+            const errorDiv = document.getElementById("error-message");
+            
+            errorDiv.style.display = "none";
+            
+            try {
+                const res = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username: usernameInput, password: passwordInput })
+                });
+                
+                const data = await res.json();
+                if (res.ok && data.ok) {
+                    window.location.href = "/";
+                } else {
+                    errorDiv.textContent = data.error || "Usuario o contraseña incorrectos";
+                    errorDiv.style.display = "block";
+                }
+            } catch (err) {
+                console.error("Error de conexión:", err);
+                errorDiv.textContent = "Error de conexión con el servidor";
+                errorDiv.style.display = "block";
+            }
+        }
+    </script>
+</body>
+</html>

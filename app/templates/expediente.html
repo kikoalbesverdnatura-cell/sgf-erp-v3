@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="expediente">
+
+    <div class="expediente-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div class="foto">
+                <!-- Quitamos el alt="Trabajador" para que no salga ese texto enorme si no hay foto -->
+                <img src="/static/img/avatar.png" alt="">
+            </div>
+
+            <div class="datos-principales">
+                <h1 id="nombrePersona">Cargando...</h1>
+
+                <div class="subtitulo">
+                    <span style="display: block; margin-bottom: 5px;">ID: <strong id="id"></strong></span>
+                    <span style="display: block; margin-bottom: 10px;">
+                        Programa: <strong id="programa"></strong>
+                    </span>
+                    
+                    <!-- Tarjetitas dinámicas -->
+                    <div id="departamento"></div>
+                    
+                    <!-- Tarjeta de alerta del semáforo -->
+                    <div id="alerta-codigo-container" style="margin-top: 12px; display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="expediente-actions" style="display: flex; gap: 12px; align-items: center;">
+            <!-- Checkbox Chaleco Morado (Sprint 2) -->
+            <label id="label-chaleco" style="display: none; align-items: center; gap: 8px; background: #f5f3ff; border: 1px solid #ddd6fe; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.95em; color: #7c3aed; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: all 0.2s; user-select: none;">
+                <input type="checkbox" id="check-chaleco" style="cursor: pointer; accent-color: #7c3aed; width: 16px; height: 16px;">
+                👚 Chaleco Morado
+            </label>
+            <button id="btn-imprimir-expediente" onclick="window.print()" class="primaryButton" style="display: flex; align-items: center; gap: 8px; background: #e2e8f0; color: #1a202c; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9em; border: 1px solid #cbd5e1; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: all 0.2s;" onmouseenter="this.style.background='#cbd5e1'" onmouseleave="this.style.background='#e2e8f0'">
+                🖨️ Imprimir PDF
+            </button>
+            <a href="#" id="link-grafana" target="_blank" class="primaryButton" style="text-decoration: none; display: none; align-items: center; gap: 8px; background: #173D2D; color: white; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9em; box-shadow: 0 4px 10px rgba(23,61,45,0.15);">
+                📊 Ver Grafana
+            </a>
+            <a href="#" id="link-salix" target="_blank" class="primaryButton" style="text-decoration: none; display: none; align-items: center; gap: 8px; background: #2f5bb7; color: white; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9em; box-shadow: 0 4px 10px rgba(47,91,183,0.15);">
+                🍃 Ver Salix
+            </a>
+        </div>
+
+    </div>
+
+    <!-- ESTRUCTURA A DOS COLUMNAS -->
+    <div style="display: flex; gap: 20px; margin-top: 25px; align-items: flex-start; flex-wrap: wrap;">
+
+        <!-- COLUMNA IZQUIERDA: Checklist vertical y compacto -->
+        <div class="panel" id="checklist-panel" style="display: none; flex: 0 0 280px; min-width: 250px; transition: all 0.3s ease;">
+            <div id="checklist-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 15px; user-select: none;">
+                <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                    📋 Checklist incorporación
+                </h2>
+                <span id="checklist-arrow" style="font-size: 0.9em; color: #1f4e3d; transition: transform 0.3s ease; transform: rotate(0deg);">▼</span>
+            </div>
+            <div id="checklist" style="transition: all 0.3s ease; max-height: 1000px; overflow: hidden; opacity: 1;">
+                <!-- JS inyecta la lista aquí -->
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: Datos principales -->
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 0;">
+            
+            <!-- Resumen IA -->
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 6px;"><span id="ia-title-icon">📊</span> <span id="ia-title-text">Resumen analítico de los datos</span></h2>
+                    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                        <!-- Checkbox de Validación -->
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85em; color: #4a5568; cursor: pointer; user-select: none;" title="Marcar para confirmar que un formador ha validado y verificado este informe">
+                            <input type="checkbox" id="check-resumen-validado" style="cursor: pointer; transform: scale(1.1);">
+                            <span style="font-weight: 700;">Validado Formador</span>
+                        </label>
+                        <!-- Botón Editar/Guardar -->
+                        <button id="btn-editar-resumen" style="background: #fff; color: #173D2D; border: 1px solid #173D2D; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s; height: 32px;" onmouseenter="this.style.background='#f0fdf4'" onmouseleave="this.style.background='#fff'">
+                            ✏️ Editar
+                        </button>
+                        <!-- Botón Generar Informe -->
+                        <button id="btn-generar-resumen-ia" style="background: #173D2D; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s; height: 32px;" onmouseenter="this.style.background='#255340'" onmouseleave="this.style.background='#173D2D'">
+                            ✨ Generar Informe
+                        </button>
+                    </div>
+                </div>
+                <div id="ia-container"></div>
+            </div>
+
+            <!-- Timeline y Gráfico -->
+            <div id="timeline-container">
+                Próximamente...
+            </div>
+
+            <!-- Valoración Actitudinal y Conducta -->
+            <div class="panel" id="panel-valoracion-actitudinal" style="display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        🧠 Valoración Actitudinal y Conducta (Indicadores)
+                    </h2>
+                    <span id="actitud-status-msg" style="font-size: 0.85em; color: #e2a100; font-weight: 600; display: flex; align-items: center; gap: 4px;"></span>
+                </div>
+                
+                <div style="display: flex; gap: 30px; align-items: center; flex-wrap: wrap;">
+                    <!-- Tabla de valoraciones (Izquierda) -->
+                    <div style="flex: 1.2; min-width: 280px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.92em;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #edf2ee; text-align: left;">
+                                    <th style="padding: 10px 6px; color: #82928a; font-weight: 700;">Indicador Actitudinal</th>
+                                    <th style="padding: 10px 6px; color: #82928a; font-weight: 700; text-align: center; width: 110px;">Puntuación</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-actitudes-body">
+                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
+                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Proactividad</td>
+                                    <td style="padding: 6px 6px; text-align: center;">
+                                        <select data-actitud="Proactividad" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                                            <option value="0">-</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
+                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Autonomía</td>
+                                    <td style="padding: 6px 6px; text-align: center;">
+                                        <select data-actitud="Autonomía" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                                            <option value="0">-</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
+                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Disposición</td>
+                                    <td style="padding: 6px 6px; text-align: center;">
+                                        <select data-actitud="Disposición" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                                            <option value="0">-</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
+                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Respeto normativo</td>
+                                    <td style="padding: 6px 6px; text-align: center;">
+                                        <select data-actitud="Respeto normativo" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                                            <option value="0">-</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
+                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Receptividad</td>
+                                    <td style="padding: 6px 6px; text-align: center;">
+                                        <select data-actitud="Receptividad" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                                            <option value="0">-</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
+                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Uso PDA</td>
+                                    <td style="padding: 6px 6px; text-align: center;">
+                                        <select data-actitud="Uso PDA" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
+                                            <option value="0">-</option>
+                                            <option value="1">1</option>
+                                            <option value="2">2</option>
+                                            <option value="3">3</option>
+                                            <option value="4">4</option>
+                                            <option value="5">5</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Gráfico de radar (Derecha) -->
+                    <div style="flex: 1; min-width: 280px; display: flex; justify-content: center; align-items: center; height: 300px; position: relative;">
+                        <canvas id="radarChartActitudinal"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formación Recibida (Clases) -->
+            <div class="panel" id="panel-formacion-recibida" style="display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); padding: 20px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        <span>🎓</span> Formación Recibida (Historial de Clases)
+                    </h2>
+                </div>
+                
+                <!-- Métricas de horas recibidas -->
+                <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px;">
+                    <div style="flex: 1; min-width: 150px; background: #fafbfc; padding: 12px; border-radius: 8px; border: 1px solid #eef0f2; text-align: center;">
+                        <span style="font-size: 0.75em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px;">Cámara (Práctico)</span>
+                        <p id="horas-recibidas-camara" style="font-size: 1.5rem; font-weight: 700; color: #2196f3; margin: 5px 0 0 0;">0:00</p>
+                    </div>
+                    <div style="flex: 1; min-width: 150px; background: #fafbfc; padding: 12px; border-radius: 8px; border: 1px solid #eef0f2; text-align: center;">
+                        <span style="font-size: 0.75em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px;">Aula (Teórico)</span>
+                        <p id="horas-recibidas-aula" style="font-size: 1.5rem; font-weight: 700; color: #ff9800; margin: 5px 0 0 0;">0:00</p>
+                    </div>
+                    <div style="flex: 1; min-width: 150px; background: #fafbfc; padding: 12px; border-radius: 8px; border: 1px solid #eef0f2; text-align: center;">
+                        <span style="font-size: 0.75em; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.5px;">Total Acumulado</span>
+                        <p id="horas-recibidas-total" style="font-size: 1.5rem; font-weight: 700; color: #1a5c37; margin: 5px 0 0 0;">0:00</p>
+                    </div>
+                </div>
+
+                <!-- Historial de clases recibidas -->
+                <div style="max-height: 250px; overflow-y: auto;" id="timeline-clases-recibidas">
+                    <span style="color:#999; font-style:italic; font-size: 0.9em; display:block; padding: 10px 0;">Cargando historial de formación...</span>
+                </div>
+            </div>
+
+            <!-- Observaciones -->
+            <div class="panel" style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        📝 Observaciones del Expediente
+                    </h2>
+                </div>
+
+                <!-- Contenedor dividido en dos columnas (Sprint 2) -->
+                <div style="display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap;">
+                    
+                    <!-- Columna Izquierda: Formulario (flex: 1) -->
+                    <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 12px; background: #fafbfc; padding: 18px; border-radius: 12px; border: 1px solid #edf2ee; box-sizing: border-box;">
+                        <strong style="font-size: 0.88em; color: #1f4e3d; border-bottom: 1px solid #edf2ee; padding-bottom: 6px;">✍️ Agregar Nueva Observación</strong>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px;">
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="nueva-observacion-autor" style="font-size: 0.78em; font-weight: 700; color: #4a5568; display: block; margin-bottom: 3px;">✍️ Autor/Formador:</label>
+                                <select id="nueva-observacion-autor" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em; background: white; cursor: pointer; color: #333; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                                    <option value="falbert">Francisco Albert (falbert)</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="nueva-observacion-jefe" style="font-size: 0.78em; font-weight: 700; color: #4a5568; display: block; margin-bottom: 3px;">🗣️ Referencia Jefe Equipo:</label>
+                                <select id="nueva-observacion-jefe" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em; background: white; cursor: pointer; color: #333; outline: none; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);">
+                                    <option value="">-- Ninguno --</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <textarea id="nueva-observacion-texto" placeholder="Escribe un comentario o usa la grabación por voz..." style="width: 100%; min-height: 100px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-family: inherit; font-size: 0.9em; resize: vertical; box-sizing: border-box;"></textarea>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                <!-- Dropdown de Tipo -->
+                                <select id="nueva-observacion-tipo" style="padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em; color: #333; background: white; cursor: pointer;">
+                                    <option value="General">🏷️ General</option>
+                                    <option value="Rendimiento">🎯 Rendimiento</option>
+                                    <option value="Urgente">⚠️ Urgente</option>
+                                    <option value="Ausencia">📅 Ausencia</option>
+                                </select>
+
+                                <!-- Checkbox RRHH -->
+                                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85em; color: #555; cursor: pointer;">
+                                    <input type="checkbox" id="nueva-observacion-rrhh" checked style="cursor: pointer;">
+                                    Visible RRHH
+                                </label>
+
+                                <!-- Checkbox Salix -->
+                                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85em; color: #555; cursor: pointer; margin-left: 8px;" title="Envía esta observación como una notificación/alerta en vivo a la PDA del trabajador">
+                                    <input type="checkbox" id="nueva-observacion-salix" style="cursor: pointer;">
+                                    📲 Enviar Alerta PDA
+                                </label>
+                            </div>
+
+                            <div style="display: flex; gap: 8px;">
+                                <button id="btn-mic-observaciones" style="background: #fff; color: #173D2D; border: 1px solid #173D2D; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.3s;" type="button">
+                                    <span id="mic-icon">🎙️</span> <span id="mic-text">Dictar</span>
+                                </button>
+                                <button id="btn-guardar-observacion" style="background: #173D2D; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.85em; font-weight: 700; cursor: pointer;" type="button">
+                                    💾 Guardar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Timeline (flex: 1) -->
+                    <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #edf2ee; padding: 18px; border-radius: 12px; background: white; box-sizing: border-box;">
+                        <strong style="font-size: 0.88em; color: #1f4e3d; border-bottom: 1px solid #edf2ee; padding-bottom: 6px; display: block;">📋 Línea de Tiempo (Historial)</strong>
+                        <div id="observaciones-timeline" class="obs-timeline" style="margin-top: 5px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                            <span style="color:#999; font-style:italic; font-size: 0.9em; display:block; padding: 10px 0;">Cargando observaciones...</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Seguimiento de Intervenciones y Tareas -->
+            <div class="panel" style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        🎯 Seguimiento de Intervenciones y Tareas
+                    </h2>
+                </div>
+
+                <div style="display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap;">
+                    
+                    <!-- Columna Izquierda: Formulario (flex: 1) -->
+                    <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 12px; background: #fafbfc; padding: 18px; border-radius: 12px; border: 1px solid #edf2ee; box-sizing: border-box;">
+                        <strong style="font-size: 0.88em; color: #1f4e3d; border-bottom: 1px solid #edf2ee; padding-bottom: 6px;">✍️ Registrar Nueva Intervención</strong>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; margin-bottom: 5px;">
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="nueva-intervencion-tipo" style="font-size: 0.78em; font-weight: 700; color: #4a5568; display: block; margin-bottom: 3px;">📢 Tipo de Acción:</label>
+                                <select id="nueva-intervencion-tipo" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em; background: white; cursor: pointer; color: #333; outline: none;">
+                                    <option value="Aviso PDA">📲 Aviso PDA (Salix)</option>
+                                    <option value="Visita Tutor">👨‍🏫 Visita Tutor en Línea</option>
+                                    <option value="Reunión Personal">🗣️ Charla / Reunión Personal</option>
+                                    <option value="Otro">❓ Otro</option>
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="nueva-intervencion-motivo" style="font-size: 0.78em; font-weight: 700; color: #4a5568; display: block; margin-bottom: 3px;">🎯 Motivo Principal:</label>
+                                <select id="nueva-intervencion-motivo" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em; background: white; cursor: pointer; color: #333; outline: none;">
+                                    <option value="Horarios/Fichajes">🕰️ Horarios / Fichajes</option>
+                                    <option value="Rendimiento">🎯 Bajo Rendimiento</option>
+                                    <option value="Calidad">❌ Errores / Calidad</option>
+                                    <option value="Actitud">🤝 Actitud / Comportamiento</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 5px;">
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="nueva-intervencion-fecha-seg" style="font-size: 0.78em; font-weight: 700; color: #4a5568; display: block; margin-bottom: 3px;">📅 Fecha de Próximo Seguimiento:</label>
+                                <input type="date" id="nueva-intervencion-fecha-seg" style="width: 100%; padding: 5px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em;">
+                            </div>
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="nueva-intervencion-autor" style="font-size: 0.78em; font-weight: 700; color: #4a5568; display: block; margin-bottom: 3px;">✍️ Autor / Formador:</label>
+                                <select id="nueva-intervencion-autor" style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 0.85em; background: white; cursor: pointer; color: #333; outline: none;">
+                                    <option value="falbert">Francisco Albert (falbert)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <textarea id="nueva-intervencion-desc" placeholder="Detalla el compromiso del trabajador o el plan de acción..." style="width: 100%; min-height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-family: inherit; font-size: 0.9em; resize: vertical; box-sizing: border-box;"></textarea>
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.85em; color: #555; cursor: pointer;" title="Envía esta descripción de inmediato a la PDA del trabajador">
+                                    <input type="checkbox" id="nueva-intervencion-salix" style="cursor: pointer;">
+                                    📲 Enviar copia a la PDA (Salix)
+                                </label>
+                            </div>
+
+                            <button id="btn-guardar-intervencion" style="background: #173D2D; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-size: 0.85em; font-weight: 700; cursor: pointer; transition: all 0.2s;" type="button">
+                                💾 Registrar Seguimiento
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Columna Derecha: Timeline (flex: 1) -->
+                    <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #edf2ee; padding: 18px; border-radius: 12px; background: white; box-sizing: border-box;">
+                        <strong style="font-size: 0.88em; color: #1f4e3d; border-bottom: 1px solid #edf2ee; padding-bottom: 6px; display: block;">📋 Plan de Intervenciones Activas</strong>
+                        <div id="intervenciones-timeline" style="margin-top: 5px; max-height: 280px; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 12px;">
+                            <span style="color:#999; font-style:italic; font-size: 0.9em; display:block; padding: 10px 0;">Cargando plan de seguimiento...</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Fichajes y Desviación (Sprint 2) -->
+            <div class="panel" style="display: flex; flex-direction: column; gap: 15px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        🕰️ Fichajes y Desviación (Últimos 30 días)
+                    </h2>
+                </div>
+                <div id="fichajes-container" style="max-height: 300px; overflow-y: auto;">
+                    <span style="color:#999; font-style:italic; font-size: 0.9em; display:block; padding: 10px 0;">Cargando fichajes...</span>
+                </div>
+            </div>
+
+            <!-- Historial de Preparación (Sacador) -->
+            <div class="panel" id="panel-historial-sacador" style="display: flex; flex-direction: column; gap: 15px; margin-top: 10px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        📋 Historial de Preparación (Sacador)
+                    </h2>
+                    <span id="nota-sacador-badge" style="font-weight: bold; background: #ebf7ee; color: #27ae60; border: 1px solid #27ae60; font-size: 0.9em; padding: 4px 10px; border-radius: 20px; display: none;"></span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="tablaHistorialSacador" style="width: 100%; border-collapse: collapse; font-size: 0.95em; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #edf2ee; color: #82928a; font-weight: 700;">
+                                <th style="padding: 10px 6px;">Fecha</th>
+                                <th style="padding: 10px 6px;">Colección</th>
+                                <th style="padding: 10px 6px; text-align: center;">IPT</th>
+                                <th style="padding: 10px 6px;">H. Inicio</th>
+                                <th style="padding: 10px 6px;">Tren</th>
+                                <th style="padding: 10px 6px; text-align: right;">Líneas</th>
+                                <th style="padding: 10px 6px; text-align: right;">Previa</th>
+                                <th style="padding: 10px 6px; text-align: center;">Tiempo</th>
+                                <th style="padding: 10px 6px; text-align: right;">Líneas/Hora</th>
+                                <th style="padding: 10px 6px; text-align: right;">Volumen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historial-sacador-body">
+                            <tr>
+                                <td colspan="10" style="text-align: center; padding: 20px; color: #999; font-style: italic;">
+                                    Cargando historial de preparación...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Librería para el Gráfico Interactivo -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Tu lógica principal forzando la actualización -->
+<script src="/static/js/expediente.js?v=39"></script>
+
+{% endblock %}

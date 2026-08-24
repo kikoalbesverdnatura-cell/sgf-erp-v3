@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/css/planificacion.css">
+
+<div class="pageHeader">
+    <div>
+        <h1>📅 Planificación de Equipos</h1>
+        <p>Organiza y gestiona el personal en formación por mentor o según su fase del programa.</p>
+    </div>
+    <div class="headerActions" style="display: flex; gap: 10px;">
+        <button id="btn-vista-mentores" class="primaryButton" style="background-color: #173D2D; transition: all 0.2s; cursor: pointer;">👨‍🏫 Vista Mentores</button>
+        <button id="btn-vista-fases" class="primaryButton" style="background-color: #f4f6f8; color: #173D2D; border: 1px solid #173D2D; transition: all 0.2s; cursor: pointer;">📋 Vista Fases</button>
+    </div>
+</div>
+
+<div style="display: flex; gap: 20px; margin-top: 20px; align-items: flex-start; width: 100%;">
+
+    <!-- Columna Izquierda: Personal en Formación sin Tutor -->
+    <div id="columna-izquierda-novatos" class="panel" style="flex: 0 0 300px; width: 300px; background-color: #f4f6f8; border-radius: 14px; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="font-size: 1.1em; color: #1f4e3d; margin: 0;">📥 Personal en Formación</h2>
+            <span id="contador-novatos" class="badge rojo" style="font-size: 0.8em;">0</span>
+        </div>
+        <p style="color: #666; font-size: 0.82em; margin-bottom: 15px;">Arrastra la tarjeta a un equipo de la derecha para asignar mentor.</p>
+        
+        <div id="lista-novatos" style="min-height: 500px; border: 2px dashed #ccc; border-radius: 8px; padding: 10px; background: #fff;">
+            <p style="color: #999; text-align: center; margin-top: 20px; font-style: italic;">Cargando personal...</p>
+        </div>
+    </div>
+
+    <!-- Columna Central: Tablero Kanban (Mentores o Fases) -->
+    <div class="panel" style="flex: 1; min-width: 300px; border-radius: 14px; padding: 16px; background: #fff; border: 1px solid #edf2ee;">
+        <h2 id="titulo-seccion-derecha" style="font-size: 1.1em; color: #1f4e3d; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+            🎓 Equipos y Mentores
+        </h2>
+        
+        <div id="tablero-equipos" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;">
+            <p style="color: #999; font-style: italic;">Cargando tablero...</p>
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Asistente y Recomendaciones Inteligentes -->
+    <div id="columna-derecha-recomendaciones" class="panel" style="flex: 0 0 350px; width: 350px; background-color: #fbfdfc; border: 1px solid #eef3f0; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <h2 style="font-size: 1.1em; color: #173D2D; margin: 0; border-bottom: 2px solid #edf2ee; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            🤖 Asistente de Formación
+        </h2>
+        <p style="color: #6b7a72; font-size: 0.82em; margin: 0 0 5px 0; line-height: 1.4;">Acciones y repasos formativos recomendados en base a datos reales.</p>
+        <div id="lista-recomendaciones" style="display: flex; flex-direction: column; gap: 12px; max-height: 580px; overflow-y: auto; padding-right: 4px;">
+            <p style="color: #999; text-align: center; font-style: italic; font-size: 0.9em; margin-top: 20px;">Analizando rendimiento...</p>
+        </div>
+    </div>
+
+</div>
+
+<!-- DRAWER DESLIZANTE PARA DETALLE RÁPIDO DEL TRABAJADOR -->
+<div id="drawer-overlay" class="drawer-overlay"></div>
+<div id="quick-view-drawer" class="drawer">
+    <div class="drawer-header">
+        <h3 id="drawer-trabajador-nombre">Detalle del Trabajador</h3>
+        <button id="drawer-close-btn" class="drawer-close">&times;</button>
+    </div>
+    <div class="drawer-content">
+        <!-- 1. Perfil Rápido -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #fbfdfc; padding: 12px 16px; border: 1px solid #edf4ef; border-radius: 10px;">
+            <div>
+                <strong id="drawer-trabajador-programa" style="font-size: 0.85em; color: #718096; display: block; text-transform: uppercase; margin-bottom: 2px;">Programa</strong>
+                <span id="drawer-trabajador-departamento" style="font-size: 0.88em; color: #2d3748; font-weight: 700;">Departamento</span>
+            </div>
+            <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                <span id="drawer-trabajador-badge-nota" class="note-badge verde">--</span>
+                <span id="drawer-trabajador-dias" style="font-size: 0.82em; color: #4a5568; font-weight: bold;">⏱️ 0 días</span>
+            </div>
+        </div>
+
+        <!-- 2. Alertas Inteligentes -->
+        <div id="drawer-alertas-container" style="display: none; flex-direction: column; gap: 8px;"></div>
+
+        <!-- 3. Gráfico de Evolución (Tableta) -->
+        <div style="background: #ffffff; border: 1px solid #edf2ee; border-radius: 12px; padding: 12px; margin-top: 10px;">
+            <h4 style="margin: 0 0 10px 0; color: #173D2D; font-size: 0.9em; border-bottom: 1.5px solid #edf2ee; padding-bottom: 6px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
+                📈 Progreso vs Modelo Ideal
+            </h4>
+            <div style="height: 190px; position: relative; width: 100%;">
+                <canvas id="drawer-progreso-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- 4. Checklist de Onboarding -->
+        <div>
+            <h4 style="margin: 0 0 10px 0; color: #173D2D; font-size: 0.95em; border-bottom: 1.5px solid #edf2ee; padding-bottom: 6px;">📋 Checklist de Onboarding (<span id="drawer-checklist-pct">0%</span>)</h4>
+            <div id="drawer-checklist-items" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <!-- Checkboxes cargados dinámicamente -->
+            </div>
+        </div>
+
+        <!-- 5. Hitos de Formación (Clases) -->
+        <div>
+            <h4 style="margin: 0 0 10px 0; color: #173D2D; font-size: 0.95em; border-bottom: 1.5px solid #edf2ee; padding-bottom: 6px;">🎓 Hitos de Formación (Clases)</h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;" id="drawer-historial-clases">
+                <!-- Clases del trabajador cargadas dinámicamente -->
+            </div>
+        </div>
+
+        <!-- 6. Formulario de Programación Rápida -->
+        <div style="background: #fbfdfc; border: 1.5px dashed #dbe5df; border-radius: 12px; padding: 14px; margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <h4 style="margin: 0; color: #173D2D; font-size: 0.9em; font-weight: bold; display: flex; align-items: center; gap: 6px;">📅 Programar Nueva Formación</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 0.72em; color: #718096; font-weight: bold; display: block; margin-bottom: 4px;">Tipo de Formación</label>
+                        <select id="form-tipo-clase" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85em; background: #fff;">
+                            <option value="Sacado H 🌼">Sacado H (Horas H)</option>
+                            <option value="Sacado V 🌱">Sacado V (Horas V)</option>
+                            <option value="Sacado A 🔮">Sacado A</option>
+                            <option value="Sacado C 🌹">Sacado C</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.72em; color: #718096; font-weight: bold; display: block; margin-bottom: 4px;">Fecha</label>
+                        <input type="date" id="form-fecha-clase" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85em;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="font-size: 0.72em; color: #718096; font-weight: bold; display: block; margin-bottom: 4px;">Hora</label>
+                        <input type="time" id="form-hora-clase" value="10:00" style="width: 100%; padding: 6px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85em;">
+                    </div>
+                    <div>
+                        <label style="font-size: 0.72em; color: #718096; font-weight: bold; display: block; margin-bottom: 4px;">Formador</label>
+                        <select id="form-formador-clase" style="width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85em; background: #fff;">
+                            <!-- Formadores cargados dinámicamente -->
+                        </select>
+                    </div>
+                </div>
+                <button id="btn-guardar-formacion-rapida" class="primaryButton" style="width: 100%; padding: 10px; margin-top: 5px; font-size: 0.88em; background: #173D2D; color: #fff; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+                    💾 Programar Formación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script src="/static/js/planificacion.js?v=4"></script>
+{% endblock %}

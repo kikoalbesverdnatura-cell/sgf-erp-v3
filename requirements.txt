@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+jinja2
+gspread
+google-auth
+requests
+watchfiles

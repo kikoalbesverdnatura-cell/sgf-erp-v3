@@ -133,7 +133,16 @@ const PersonaService = {
              persona.estado !== CONFIG.ESTADOS.BAJA;
     });
   },
-
+getFinalizados() {
+  return this.getAll().filter(function(persona) {
+    return (
+      persona.estado === CONFIG.ESTADOS.FINALIZADO ||
+      persona.estado === "Finalizado" ||
+      persona.finalizado === true ||
+      persona.finalizado === "SI"
+    );
+  });
+},
 
   getByTutor(tutor) {
     return this.getAll().filter(function(persona) {
@@ -402,7 +411,38 @@ const PersonaService = {
       miliPct: this.pct(mili, total)
     };
   },
+getStats() {
 
+  const resumen = this.getResumen();
+
+  return {
+    total: resumen.total,
+    activos: resumen.total,
+    enSeguimiento: this.getEnSeguimiento().length,
+
+    nuevas: resumen.nuevas,
+    onboarding: resumen.nuevas,
+    mili: resumen.mili,
+
+    riesgoAlto: resumen.riesgo,
+    riesgoMedio: 0,
+    riesgoBajo: Math.max(0, resumen.total - resumen.riesgo),
+
+    finalizados: this.getFinalizados().length,
+
+    formadores: resumen.formadores,
+
+    sinTutor: this.getEnSeguimiento().filter(function(p){
+      return !p.tutor;
+    }).length,
+
+    hoy: this.getHoy().length,
+    manana: this.getManana().length,
+    estaSemana: this.getEstaSemana().length,
+    finalizanSemana: this.getFinalizanEstaSemana().length
+  };
+
+},
 
   getId(persona) {
     if (!persona) return "";

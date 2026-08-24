@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="/static/css/operaciones.css">
+
+<div class="pageHeader">
+
+    <div>
+
+        <h1>📅 Operaciones</h1>
+
+        <p>
+            Centro operativo del Departamento de Formación.
+        </p>
+
+    </div>
+
+    <div class="headerActions">
+
+        <button class="primaryButton">
+            🔄 Actualizar
+        </button>
+
+    </div>
+
+</div>
+
+<!-- KPI -->
+
+<section class="kpiGrid">
+
+    <div class="kpiCard">
+
+        <span>👥 En seguimiento</span>
+
+        <h2 id="kpiSeguimiento">0</h2>
+
+    </div>
+
+    <div class="kpiCard">
+
+        <span>📅 Entran hoy</span>
+
+        <h2 id="kpiHoy">0</h2>
+
+    </div>
+
+    <div class="kpiCard">
+
+        <span>⚠ Riesgo alto</span>
+
+        <h2 id="kpiRiesgo">0</h2>
+
+    </div>
+
+    <div class="kpiCard">
+
+        <span>✅ Checklist pendientes</span>
+
+        <h2 id="kpiChecklist">0</h2>
+
+    </div>
+
+</section>
+
+
+<div class="grid-expediente">
+
+    <!-- PLANIFICACIÓN -->
+
+    <div class="panel">
+
+        <h2>📅 Planificación</h2>
+
+        <p>
+
+            Organiza las incorporaciones mediante Drag & Drop.
+
+        </p>
+
+        <button
+            class="primaryButton"
+            onclick="window.location='/planificacion'">
+
+            Abrir planificación
+
+        </button>
+
+    </div>
+
+
+    <!-- SEGUIMIENTO -->
+
+    <div class="panel">
+
+        <h2>👥 Seguimiento</h2>
+
+        <p>
+
+            Consulta todas las personas activas.
+
+        </p>
+
+        <button
+            class="primaryButton"
+            onclick="window.location='/personas'">
+
+            Abrir personas
+
+        </button>
+
+    </div>
+
+
+    <!-- EVALUACIONES -->
+
+    <div class="panel">
+
+        <h2>⭐ Evaluaciones</h2>
+
+        <p>
+
+            Registrar evaluaciones y observaciones.
+
+        </p>
+
+        <button class="primaryButton">
+
+            Próximamente
+
+        </button>
+
+    </div>
+
+
+    <!-- CHECKLIST -->
+
+    <div class="panel">
+
+        <h2>✅ Checklist</h2>
+
+        <p>
+
+            Seguimiento de onboarding.
+
+        </p>
+
+        <button class="primaryButton">
+
+            Próximamente
+
+        </button>
+
+    </div>
+
+
+    <!-- TIMELINE -->
+
+    <div class="panel panel-full">
+
+        <h2>📌 Actividad reciente</h2>
+
+        <div id="timelineOperaciones">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>Hora</th>
+                        <th>Trabajador</th>
+                        <th>Acción</th>
+                        <th>Usuario</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    <tr>
+
+                        <td colspan="4" style="text-align:center;padding:40px;">
+
+                            Sin actividad.
+
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

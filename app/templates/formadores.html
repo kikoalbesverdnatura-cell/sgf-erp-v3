@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- Force fresh stylesheet loading to bypass cache -->
+<link rel="stylesheet" href="/static/css/formadores.css?v=2">
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="container">
+
+    <div class="pageHeader" style="margin-bottom: 25px;">
+        <div>
+            <h1>🎓 Formadores</h1>
+            <p>Listado y estadísticas de docentes de formación práctica y teórica.</p>
+        </div>
+    </div>
+
+    <!-- Tarjetas de métricas globales -->
+    <div class="formadores-kpi-grid">
+        <div class="formadores-kpi-card" style="border-left-color: #1a5c37;">
+            <div class="formadores-kpi-icon" style="background: #e8f5e9; color: #1a5c37;">🎓</div>
+            <div class="formadores-kpi-info">
+                <h3>Formadores</h3>
+                <p id="kpi-total-formadores">-</p>
+            </div>
+        </div>
+        <div class="formadores-kpi-card" style="border-left-color: #2196f3;">
+            <div class="formadores-kpi-icon" style="background: #e3f2fd; color: #2196f3;">📹</div>
+            <div class="formadores-kpi-info">
+                <h3>Horas Cámara</h3>
+                <p id="kpi-horas-camara">-</p>
+            </div>
+        </div>
+        <div class="formadores-kpi-card" style="border-left-color: #ff9800;">
+            <div class="formadores-kpi-icon" style="background: #fff3e0; color: #ff9800;">🏫</div>
+            <div class="formadores-kpi-info">
+                <h3>Horas Aula</h3>
+                <p id="kpi-horas-aula">-</p>
+            </div>
+        </div>
+        <div class="formadores-kpi-card" style="border-left-color: #009688;">
+            <div class="formadores-kpi-icon" style="background: #e0f2f1; color: #009688;">👥</div>
+            <div class="formadores-kpi-info">
+                <h3>Empleados Asignados</h3>
+                <p id="kpi-empleados-asignados">-</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel del Gráfico Comparativo -->
+    <div class="panel" style="margin-bottom: 25px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #edf2f7;">
+        <h2 style="margin-top: 0; margin-bottom: 15px; font-size: 1.2rem; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
+            📊 Comparativa de Horas por Formador
+        </h2>
+        <div style="position: relative; height: 320px; width: 100%;">
+            <canvas id="grafico-formadores"></canvas>
+        </div>
+    </div>
+
+    <!-- Barra de búsqueda -->
+    <div class="panel" style="margin-bottom: 25px; padding: 15px; display: flex; align-items: center; gap: 15px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #edf2f7;">
+        <span style="font-size: 1.2rem;">🔍</span>
+        <input type="text" id="buscador-formadores" placeholder="Buscar formador por nombre o código..." style="flex: 1; border: 1px solid #ddd; padding: 10px 15px; border-radius: 8px; font-size: 0.95rem;">
+    </div>
+
+    <!-- Grid de tarjetas de formadores -->
+    <div class="formadores-grid" id="grid-formadores">
+        <!-- Se rellena por JS -->
+    </div>
+
+</div>
+
+<script src="/static/js/formadores.js?v=2"></script>
+
+{% endblock %}

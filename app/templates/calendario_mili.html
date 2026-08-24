@@ -1,0 +1,705 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- FullCalendar CDN -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+
+<style>
+    /* Estilos personalizados para FullCalendar y la interfaz */
+    :root {
+        --fc-border-color: #e2e8f0;
+        --fc-daygrid-event-dot-width: 8px;
+        --fc-button-bg-color: #173D2D;
+        --fc-button-border-color: #173D2D;
+        --fc-button-hover-bg-color: #255340;
+        --fc-button-hover-border-color: #255340;
+        --fc-button-active-bg-color: #112d21;
+        --fc-button-active-border-color: #112d21;
+    }
+    
+    .fc {
+        background: #fff;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        border: 1px solid #edf2ee;
+    }
+    
+    .fc-col-header-cell {
+        background: #fbfdfc;
+        padding: 10px 0 !important;
+        color: #173D2D !important;
+        font-weight: 700 !important;
+    }
+    
+    .fc-event {
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.85em;
+        border: none !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    
+    .event-pendiente {
+        background-color: #fff9db !important;
+        color: #f59f00 !important;
+        border-left: 4px solid #f59f00 !important;
+    }
+    
+    .event-finalizada {
+        background-color: #ebfbee !important;
+        color: #2b8a3e !important;
+        border-left: 4px solid #2b8a3e !important;
+    }
+
+    /* Modal Styling */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.4);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(4px);
+        transition: all 0.3s ease;
+    }
+    
+    .modal-content {
+        background: #fff;
+        padding: 30px;
+        border-radius: 20px;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+    }
+    
+    @keyframes slideIn {
+        from { transform: translateY(-30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .form-group {
+        margin-bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .form-group label {
+        font-weight: 600;
+        color: #173D2D;
+        font-size: 0.9em;
+    }
+    
+    .form-group input, .form-group select {
+        padding: 10px 14px;
+        border: 1px solid #dbe5df;
+        border-radius: 8px;
+        font-size: 0.95em;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    
+    .form-group input:focus, .form-group select:focus {
+        border-color: #173D2D;
+        box-shadow: 0 0 0 3px rgba(23,61,45,0.1);
+    }
+    
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+    }
+    
+    .btn-secondary {
+        background: #f4f6f8;
+        color: #4a5568;
+        border: 1px solid #e2e8f0;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+    
+    .mili-draggable-row {
+        cursor: grab !important;
+        user-select: none;
+    }
+    .mili-draggable-row:active {
+        cursor: grabbing !important;
+    }
+</style>
+
+<div class="pageHeader">
+    <div>
+        <h1>📅 Calendario de Formación Interna (Mili)</h1>
+        <p>Dashboard de seguimiento y agenda de la formación práctica para novatos y veteranos.</p>
+    </div>
+    <div class="headerActions">
+        <button id="btn-programar" class="primaryButton">📅 Programar Formación</button>
+    </div>
+</div>
+
+<!-- KPIs -->
+<section class="kpiGrid">
+    <div class="kpiCard">
+        <span>📋 Total Sesiones</span>
+        <h2 id="kpi-total">0</h2>
+    </div>
+    <div class="kpiCard" style="border-left: 4px solid #f59f00;">
+        <span>⏳ Sesiones Pendientes</span>
+        <h2 id="kpi-pendientes" style="color: #f59f00;">0</h2>
+    </div>
+    <div class="kpiCard" style="border-left: 4px solid #2b8a3e;">
+        <span>✅ Sesiones Finalizadas</span>
+        <h2 id="kpi-finalizadas" style="color: #2b8a3e;">0</h2>
+    </div>
+    <div class="kpiCard">
+        <span>👨‍🏫 Formadores Activos</span>
+        <h2 id="kpi-formadores">0</h2>
+    </div>
+</section>
+
+<!-- Calendar View and Training List Panel -->
+<div style="display: flex; gap: 24px; margin-top: 30px; align-items: flex-start; flex-wrap: wrap;">
+    <!-- Calendar Column -->
+    <div style="flex: 1.5; min-width: 600px;">
+        <div id='calendar'></div>
+    </div>
+    
+    <!-- Details Panel Column -->
+    <div class="panel" style="flex: 1; min-width: 380px; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); border: 1px solid #edf2ee;">
+        <h2 style="font-size: 1.2em; color: #173D2D; margin-bottom: 15px; border-bottom: 2px solid #edf4ef; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            📝 Listado de Sesiones
+            <input type="text" id="filtro-tabla" placeholder="Buscar por nombre..." style="font-size: 0.75em; padding: 6px 12px; border-radius: 6px; border: 1px solid #dbe5df; outline: none;">
+        </h2>
+        
+        <div style="overflow-x: auto; max-height: 560px;">
+            <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #edf4ef; text-align: left; color: #718096;">
+                        <th style="padding: 8px;">Trabajador</th>
+                        <th style="padding: 8px;">Fecha/Hora</th>
+                        <th style="padding: 8px;">Formador</th>
+                        <th style="padding: 8px; text-align: center;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tabla-eventos-body">
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #a0aec0; padding: 20px;">Cargando sesiones...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Dialog -->
+<div id="modal-evento" class="modal">
+    <div class="modal-content">
+        <h2 id="modal-titulo" style="color: #173D2D; margin-bottom: 20px;">Programar Nueva Formación</h2>
+        <form id="form-evento">
+            <input type="hidden" id="form-id">
+            
+            <div class="form-group">
+                <label for="form-nombre">Trabajador</label>
+                <!-- Buscador con select autocompletable -->
+                <select id="form-nombre" required>
+                    <option value="">Seleccione o escriba...</option>
+                </select>
+                <!-- Alternativa para escribir a mano si no está en la base de datos de personas -->
+                <input type="text" id="form-nombre-manual" placeholder="O escriba el nombre manualmente si no aparece arriba" style="margin-top: 6px;">
+            </div>
+            
+            <div class="form-group">
+                <label for="form-departamento">Departamento</label>
+                <input type="text" id="form-departamento" value="Sacado H 🌼" required>
+            </div>
+            
+            <div class="form-group" style="display: flex; flex-direction: row; gap: 12px;">
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <label for="form-fecha">Fecha</label>
+                    <input type="date" id="form-fecha" required>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                    <label for="form-hora">Hora</label>
+                    <input type="time" id="form-hora" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="form-formador">Formador</label>
+                <select id="form-formador">
+                    <option value="">Sin asignar</option>
+                    <option value="kiko">kiko</option>
+                    <option value="eugenio">eugenio</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="form-estado">Estado de la sesión</label>
+                <select id="form-estado">
+                    <option value="Pendiente">⏳ Pendiente</option>
+                    <option value="Finalizada">✅ Finalizada</option>
+                </select>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="btn-cerrar">Cancelar</button>
+                <button type="submit" class="primaryButton" id="btn-guardar">Guardar Sesión</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let calendar = null;
+    let eventosCache = [];
+    let personasCache = [];
+
+    document.addEventListener("DOMContentLoaded", async function() {
+        iniciarCalendario();
+        await cargarPersonasDisponibles();
+        await cargarDatosMili();
+        
+        // Listeners del modal
+        document.getElementById("btn-programar").addEventListener("click", () => abrirModalCrear());
+        document.getElementById("btn-cerrar").addEventListener("click", cerrarModal);
+        document.getElementById("form-evento").addEventListener("submit", guardarFormulario);
+        
+        // Filtro de tabla
+        document.getElementById("filtro-tabla").addEventListener("input", filtrarTabla);
+        
+        // Inicializar Drag and Drop externo para las filas de la tabla
+        const containerEl = document.getElementById("tabla-eventos-body");
+        if (containerEl) {
+            new FullCalendar.Draggable(containerEl, {
+                itemSelector: '.mili-draggable-row',
+                eventData: function(eventEl) {
+                    return {
+                        id: eventEl.dataset.id,
+                        title: `${eventEl.dataset.nombre} (${eventEl.dataset.formador || 'Sin Tutor'})`,
+                        create: false // No crear automáticamente evento en FullCalendar (recargamos por base de datos)
+                    };
+                }
+            });
+        }
+    });
+
+    function iniciarCalendario() {
+        const calendarEl = document.getElementById('calendar');
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'es',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listMonth'
+            },
+            buttonText: {
+                today: 'Hoy',
+                month: 'Mes',
+                week: 'Semana',
+                list: 'Agenda'
+            },
+            events: [],
+            editable: true,
+            droppable: true,
+            eventClick: function(info) {
+                const evId = info.event.id;
+                const evObj = eventosCache.find(e => String(e.id) === String(evId));
+                if (evObj) abrirModalEditar(evObj);
+            },
+            eventDrop: async function(info) {
+                const evId = info.event.id;
+                const newDate = info.event.start;
+                
+                // Format date as DD/MM/YYYY
+                const day = String(newDate.getDate()).padStart(2, '0');
+                const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                const year = newDate.getFullYear();
+                const fecha = `${day}/${month}/${year}`;
+                
+                // Format hour as HH:MM
+                const hours = String(newDate.getHours()).padStart(2, '0');
+                const minutes = String(newDate.getMinutes()).padStart(2, '0');
+                const hora = `${hours}:${minutes}`;
+
+                try {
+                    // Update date
+                    let res = await fetch("/api/mili/actualizar", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: parseInt(evId), campo: "fecha", valor: fecha })
+                    });
+                    let r = await res.json();
+                    if (!r.ok) throw new Error(r.error || "Error al actualizar fecha");
+
+                    // Update time only if it is not an all-day event
+                    if (!info.event.allDay) {
+                        res = await fetch("/api/mili/actualizar", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: parseInt(evId), campo: "hora", valor: hora })
+                        });
+                        let r2 = await res.json();
+                        if (!r2.ok) throw new Error(r2.error || "Error al actualizar hora");
+                    }
+                    
+                    await cargarDatosMili();
+                } catch(err) {
+                    console.error("Error al reprogramar sesión:", err);
+                    alert("No se pudo reprogramar la sesión: " + err.message);
+                    info.revert();
+                }
+            },
+            drop: async function(info) {
+                const draggedEl = info.draggedEl;
+                const evId = draggedEl.dataset.id;
+                const newDate = info.date;
+                
+                // Format date as DD/MM/YYYY
+                const day = String(newDate.getDate()).padStart(2, '0');
+                const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                const year = newDate.getFullYear();
+                const fecha = `${day}/${month}/${year}`;
+                
+                const hora = draggedEl.dataset.hora || "08:00";
+
+                try {
+                    // Update date
+                    let res = await fetch("/api/mili/actualizar", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: parseInt(evId), campo: "fecha", valor: fecha })
+                    });
+                    let r = await res.json();
+                    if (!r.ok) throw new Error(r.error || "Error al actualizar fecha");
+
+                    // Update hour
+                    res = await fetch("/api/mili/actualizar", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: parseInt(evId), campo: "hora", valor: hora })
+                    });
+                    let r2 = await res.json();
+                    if (!r2.ok) throw new Error(r2.error || "Error al actualizar hora");
+
+                    await cargarDatosMili();
+                } catch(err) {
+                    console.error("Error al asignar fecha a la sesión:", err);
+                    alert("No se pudo asignar la fecha a la sesión: " + err.message);
+                }
+            }
+        });
+        calendar.render();
+    }
+
+    async function cargarPersonasDisponibles() {
+        try {
+            const res = await fetch("/api/personas");
+            if (res.ok) {
+                personasCache = await res.json();
+                const select = document.getElementById("form-nombre");
+                // Ordenar alfabéticamente
+                personasCache.sort((a,b) => a.nombre.localeCompare(b.nombre));
+                personasCache.forEach(p => {
+                    const opt = document.createElement("option");
+                    opt.value = p.nombre;
+                    opt.textContent = p.nombre;
+                    select.appendChild(opt);
+                });
+            }
+        } catch(err) {
+            console.error("Error cargando personas disponibles:", err);
+        }
+    }
+
+    async function cargarDatosMili() {
+        try {
+            const res = await fetch("/api/mili");
+            if (!res.ok) throw new Error("Error cargando mili");
+            
+            eventosCache = await res.json();
+            
+            // 1. Calcular KPIs
+            calcularKPIs();
+            
+            // 2. Pintar en Calendario
+            const fcEvents = eventosCache.map(e => {
+                // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
+                let dateStr = "";
+                if (e.fecha) {
+                    const parts = e.fecha.split("/");
+                    if (parts.length === 3) {
+                        dateStr = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+                    }
+                }
+                
+                let startStr = dateStr;
+                if (e.hora && dateStr) {
+                    startStr = `${dateStr}T${e.hora.padStart(5, '0')}:00`;
+                }
+                
+                const className = e.estado === "Finalizada" ? "event-finalizada" : "event-pendiente";
+                
+                return {
+                    id: String(e.id),
+                    title: `${e.nombre} (${e.formador || "Sin Tutor"})`,
+                    start: startStr || dateStr,
+                    allDay: !e.hora,
+                    className: className
+                };
+            }).filter(e => e.start); // Filtrar eventos sin fecha válida
+            
+            calendar.removeAllEvents();
+            calendar.addEventSource(fcEvents);
+            
+            // 3. Pintar en Tabla
+            renderizarTabla(eventosCache);
+            
+        } catch(err) {
+            console.error(err);
+            alert("Error al cargar la información del calendario.");
+        }
+    }
+
+    function calcularKPIs() {
+        const total = eventosCache.length;
+        const pendientes = eventosCache.filter(e => e.estado === "Pendiente").length;
+        const finalizadas = eventosCache.filter(e => e.estado === "Finalizada").length;
+        
+        const formadores = new Set(eventosCache.map(e => e.formador).filter(f => f));
+        
+        document.getElementById("kpi-total").textContent = total;
+        document.getElementById("kpi-pendientes").textContent = pendientes;
+        document.getElementById("kpi-finalizadas").textContent = finalizadas;
+        document.getElementById("kpi-formadores").textContent = formadores.size;
+    }
+
+    function renderizarTabla(lista) {
+        const tbody = document.getElementById("tabla-eventos-body");
+        tbody.innerHTML = "";
+        
+        if (lista.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #999; padding: 20px;">No se encontraron sesiones</td></tr>`;
+            return;
+        }
+        
+        // Ordenar por fecha descendente (más recientes primero)
+        const listaOrdenada = [...lista].sort((a, b) => {
+            const dateA = a.fecha ? a.fecha.split("/").reverse().join("-") : "";
+            const dateB = b.fecha ? b.fecha.split("/").reverse().join("-") : "";
+            return dateB.localeCompare(dateA);
+        });
+        
+        listaOrdenada.forEach(e => {
+            const tr = document.createElement("tr");
+            tr.className = "mili-draggable-row";
+            tr.setAttribute("draggable", "true");
+            tr.dataset.id = e.id;
+            tr.dataset.nombre = e.nombre;
+            tr.dataset.departamento = e.departamento;
+            tr.dataset.formador = e.formador || "";
+            tr.dataset.estado = e.estado || "Pendiente";
+            tr.dataset.hora = e.hora || "08:00";
+            
+            tr.style.borderBottom = "1px solid #edf4ef";
+            tr.style.cursor = "grab";
+            
+            // Hover effect
+            tr.addEventListener("mouseenter", () => tr.style.background = "#fbfdfc");
+            tr.addEventListener("mouseleave", () => tr.style.background = "transparent");
+            tr.addEventListener("click", () => abrirModalEditar(e));
+            
+            const badgeClass = e.estado === "Finalizada" ? "badge" : "badge rojo";
+            const badgeStyle = e.estado === "Finalizada" ? "background: #ebfbee; color: #2b8a3e; padding: 2px 6px; border-radius: 4px; font-weight: bold;" : "background: #fff9db; color: #f59f00; padding: 2px 6px; border-radius: 4px; font-weight: bold;";
+            
+            tr.innerHTML = `
+                <td style="padding: 10px 8px;">
+                    <strong style="color: #173D2D; display:block;">${escapeHtml(e.nombre)}</strong>
+                    <span style="font-size:0.85em; color: #718096;">${escapeHtml(e.departamento)}</span>
+                </td>
+                <td style="padding: 10px 8px; color: #4a5568;">
+                    📅 ${e.fecha || "-"}<br>⏰ ${e.hora || "-"}
+                </td>
+                <td style="padding: 10px 8px; color: #4a5568;">
+                    👤 ${escapeHtml(e.formador || "Sin asignar")}
+                </td>
+                <td style="padding: 10px 8px; text-align: center;">
+                    <span style="${badgeStyle}">${e.estado}</span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filtrarTabla() {
+        const query = document.getElementById("filtro-tabla").value.toLowerCase();
+        const filtrados = eventosCache.filter(e => 
+            e.nombre.toLowerCase().includes(query) || 
+            (e.formador || "").toLowerCase().includes(query) ||
+            e.departamento.toLowerCase().includes(query)
+        );
+        renderizarTabla(filtrados);
+    }
+
+    function abrirModalCrear() {
+        document.getElementById("modal-titulo").textContent = "Programar Nueva Formación";
+        document.getElementById("form-id").value = "";
+        document.getElementById("form-nombre").value = "";
+        document.getElementById("form-nombre-manual").value = "";
+        document.getElementById("form-departamento").value = "Sacado H 🌼";
+        
+        // Poner la fecha de hoy por defecto
+        const hoy = new Date().toISOString().split("T")[0];
+        document.getElementById("form-fecha").value = hoy;
+        document.getElementById("form-hora").value = "08:00";
+        document.getElementById("form-formador").value = "";
+        document.getElementById("form-estado").value = "Pendiente";
+        
+        document.getElementById("modal-evento").style.display = "flex";
+    }
+
+    function abrirModalEditar(evento) {
+        document.getElementById("modal-titulo").textContent = "Editar Sesión de Formación";
+        document.getElementById("form-id").value = evento.id;
+        
+        // Si el nombre está en el select, marcarlo; si no, ponerlo en manual
+        const select = document.getElementById("form-nombre");
+        let found = false;
+        for (let i = 0; i < select.options.length; i++) {
+            if (select.options[i].value === evento.nombre) {
+                select.selectedIndex = i;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            select.value = "";
+            document.getElementById("form-nombre-manual").value = evento.nombre;
+        } else {
+            document.getElementById("form-nombre-manual").value = "";
+        }
+        
+        document.getElementById("form-departamento").value = evento.departamento;
+        
+        // Convertir DD/MM/YYYY a YYYY-MM-DD
+        let dateStr = "";
+        if (evento.fecha) {
+            const parts = evento.fecha.split("/");
+            if (parts.length === 3) {
+                dateStr = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+            }
+        }
+        document.getElementById("form-fecha").value = dateStr;
+        document.getElementById("form-hora").value = evento.hora || "08:00";
+        document.getElementById("form-formador").value = evento.formador || "";
+        document.getElementById("form-estado").value = evento.estado || "Pendiente";
+        
+        document.getElementById("modal-evento").style.display = "flex";
+    }
+
+    function cerrarModal() {
+        document.getElementById("modal-evento").style.display = "none";
+    }
+
+    async function guardarFormulario(e) {
+        e.preventDefault();
+        
+        const id = document.getElementById("form-id").value;
+        const nombreSelect = document.getElementById("form-nombre").value;
+        const nombreManual = document.getElementById("form-nombre-manual").value.trim();
+        const nombre = nombreSelect || nombreManual;
+        
+        if (!nombre) {
+            alert("Debe seleccionar un trabajador o ingresar su nombre manualmente.");
+            return;
+        }
+        
+        const departamento = document.getElementById("form-departamento").value;
+        const fechaRaw = document.getElementById("form-fecha").value; // YYYY-MM-DD
+        const hora = document.getElementById("form-hora").value;
+        const formador = document.getElementById("form-formador").value;
+        const estado = document.getElementById("form-estado").value;
+        
+        // Convertir YYYY-MM-DD a DD/MM/YYYY
+        let fecha = "";
+        if (fechaRaw) {
+            const parts = fechaRaw.split("-");
+            if (parts.length === 3) {
+                fecha = `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+        }
+        
+        const datos = {
+            nombre: nombre,
+            departamento: departamento,
+            fecha: fecha,
+            hora: hora,
+            formador: formador,
+            estado: estado
+        };
+        
+        try {
+            if (id) {
+                // Editar evento campo por campo (enviando llamadas de actualización)
+                const campos = ["nombre", "departamento", "fecha", "hora", "formador", "estado"];
+                for (const c of campos) {
+                    const res = await fetch("/api/mili/actualizar", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ id: parseInt(id), campo: c, valor: datos[c] })
+                    });
+                    const r = await res.json();
+                    if (!r.ok) {
+                        alert(`Error actualizando campo ${c}: ` + (r.error || "Desconocido"));
+                        return;
+                    }
+                }
+            } else {
+                // Crear nuevo evento
+                const res = await fetch("/api/mili/programar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(datos)
+                });
+                const r = await res.json();
+                if (!r.ok) {
+                    alert("Error al programar sesión: " + (r.error || "Desconocido"));
+                    return;
+                }
+            }
+            
+            cerrarModal();
+            await cargarDatosMili();
+            
+        } catch(err) {
+            console.error(err);
+            alert("Error de red al guardar la sesión.");
+        }
+    }
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+</script>
+{% endblock %}

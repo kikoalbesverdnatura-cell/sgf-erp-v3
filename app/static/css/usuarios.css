@@ -1,0 +1,84 @@
+/* Styling for Usuarios page */
+.modalOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+}
+
+#tabla-usuarios th, #tabla-usuarios td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+#tabla-usuarios tbody tr:hover {
+    background: #f8fafc;
+}
+
+.rol-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85em;
+    font-weight: 700;
+    display: inline-block;
+}
+
+.rol-formador {
+    background: #ebf8ff;
+    color: #2b6cb0;
+}
+
+.rol-rrhh {
+    background: #f0fff4;
+    color: #2f855a;
+}
+
+.rol-responsable {
+    background: #faf5ff;
+    color: #6b46c1;
+}
+
+.rol-administrador {
+    background: #fff5f5;
+    color: #c53030;
+}
+
+.estado-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.82em;
+    font-weight: bold;
+}
+
+.estado-activo {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.estado-inactivo {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+.action-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1.1em;
+    padding: 4px;
+    transition: transform 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn:hover {
+    transform: scale(1.18);
+}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="/static/css/formacion.css">
+
+<div class="pageHeader">
+
+    <div>
+
+        <h1>📚 Centro de Conocimiento</h1>
+
+        <p>
+            Toda la documentación, procedimientos, vídeos y formación del Departamento de Formación.
+        </p>
+
+    </div>
+
+    <div class="headerActions">
+
+        <button class="primaryButton">
+
+            🔍 Buscar documentación
+
+        </button>
+
+    </div>
+
+</div>
+
+<!-- KPIs -->
+
+<section class="kpiGrid">
+
+    <div class="kpiCard">
+        <span>📄 Procedimientos</span>
+        <h2>1</h2>
+    </div>
+
+    <div class="kpiCard">
+        <span>🎥 Vídeos</span>
+        <h2>0</h2>
+    </div>
+
+    <div class="kpiCard">
+        <span>📝 Exámenes</span>
+        <h2>0</h2>
+    </div>
+
+    <div class="kpiCard">
+        <span>📂 Documentos</span>
+        <h2>0</h2>
+    </div>
+
+</section>
+
+
+<div class="knowledgeGrid">
+
+    <a href="https://docs.google.com/presentation/d/1JMsVb1wEM3IDwTbkDDRepgAyzXRPDhnw3OknLTlbT8Q/" target="_blank" class="knowledgeCard" style="text-decoration: none; color: inherit;">
+
+        <div class="icon">📘</div>
+
+        <h2>Procedimientos (SOP)</h2>
+
+        <p>
+            Procedimientos operativos estándar de todos los departamentos.
+        </p>
+
+    </a>
+
+    <div class="knowledgeCard">
+
+        <div class="icon">🎥</div>
+
+        <h2>Vídeos de formación</h2>
+
+        <p>
+            Biblioteca multimedia para nuevos trabajadores.
+        </p>
+
+    </div>
+
+    <div class="knowledgeCard">
+
+        <div class="icon">📝</div>
+
+        <h2>Exámenes</h2>
+
+        <p>
+            Evaluaciones y pruebas de conocimiento.
+        </p>
+
+    </div>
+
+    <a href="https://drive.google.com/drive/u/0/folders/1XN-Ki2T5OmOWk_RocFADRBTfy735EyjN" target="_blank" class="knowledgeCard" style="text-decoration: none; color: inherit;">
+
+        <div class="icon">📁</div>
+
+        <h2>Documentación</h2>
+
+        <p>
+            Manuales, PDF, Excel, Word y documentación técnica.
+        </p>
+
+    </a>
+
+    <div class="knowledgeCard">
+
+        <div class="icon">🛡️</div>
+
+        <h2>Seguridad</h2>
+
+        <p>
+            Riesgos laborales, EPI y normativa.
+        </p>
+
+    </div>
+
+    <div class="knowledgeCard">
+
+        <div class="icon">❓</div>
+
+        <h2>Preguntas frecuentes</h2>
+
+        <p>
+            Incidencias habituales y soluciones.
+        </p>
+
+    </div>
+
+    <div class="knowledgeCard">
+
+        <div class="icon">⭐</div>
+
+        <h2>Buenas prácticas</h2>
+
+        <p>
+            Recomendaciones para mejorar productividad y calidad.
+        </p>
+
+    </div>
+
+    <div class="knowledgeCard">
+
+        <div class="icon">🤖</div>
+
+        <h2>Formación recomendada</h2>
+
+        <p>
+            Contenido sugerido automáticamente por la IA según el perfil del trabajador.
+        </p>
+
+    </div>
+
+</div>
+
+
+<div class="panel" style="margin-top:35px;">
+
+    <h2>Próximas integraciones</h2>
+
+    <table>
+
+        <thead>
+
+            <tr>
+
+                <th>Origen</th>
+                <th>Contenido</th>
+                <th>Estado</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            <tr>
+
+                <td>Google Drive</td>
+                <td>Procedimientos y documentación</td>
+                <td>🟡 Pendiente</td>
+
+            </tr>
+
+            <tr>
+
+                <td>Odoo</td>
+                <td>Artículos y manuales</td>
+                <td>🟡 Pendiente</td>
+
+            </tr>
+
+            <tr>
+
+                <td>Vídeos</td>
+                <td>Biblioteca multimedia</td>
+                <td>🟡 Pendiente</td>
+
+            </tr>
+
+            <tr>
+
+                <td>Exámenes</td>
+                <td>Evaluaciones automáticas</td>
+                <td>🟡 Pendiente</td>
+
+            </tr>
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

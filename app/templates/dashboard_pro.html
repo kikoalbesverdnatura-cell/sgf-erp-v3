@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/css/dashboard_pro.css?v=1">
+
+<div class="dashboard-pro">
+    <!-- TITULO DE LA PANTALLA -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2ee; padding-bottom: 12px;">
+        <h1 style="color: #173D2D; margin: 0; font-size: 1.8em; font-weight: 800;">Panel de Control Avanzado (Propuesta Ideal)</h1>
+        <div style="display: flex; gap: 10px;">
+            <a href="/" class="secondaryButton" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9em; display: flex; align-items: center; gap: 6px; border: 1px solid #cbd5e1;">
+                🔙 Volver al Normal
+            </a>
+            <button id="btn-sync-bajas" onclick="forzarSincronizacionBajas()" class="primaryButton" style="background: #2b6cb0; box-shadow: 0 4px 10px rgba(43,108,176,0.15); display: flex; align-items: center; gap: 6px; font-size: 0.9em; padding: 10px 16px; border-radius: 8px;">
+                🔄 Sincronizar Bajas Salix
+            </button>
+        </div>
+    </div>
+
+    <!-- KPIs RESUMEN SUPERIOR -->
+    <div class="kpis-row">
+        <div class="kpi-box">
+            <div class="kpi-icon">👥</div>
+            <div class="kpi-info">
+                <h3>Operarios Activos</h3>
+                <div class="kpi-num" id="stat-operarios-activos">0</div>
+            </div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-icon" style="background: #fff8e6; color: #b7791f;">🔴</div>
+            <div class="kpi-info">
+                <h3>Alertas Críticas</h3>
+                <div class="kpi-num" id="stat-alertas-criticas" style="color: #b7791f;">0</div>
+            </div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-icon" style="background: #ebf8ff; color: #2b6cb0;">🎓</div>
+            <div class="kpi-info">
+                <h3>Horas Formación</h3>
+                <div class="kpi-num" id="stat-horas-formacion" style="color: #2b6cb0;">0h</div>
+            </div>
+        </div>
+        <div class="kpi-box">
+            <div class="kpi-icon" style="background: #ebf7ee; color: #27ae60;">📋</div>
+            <div class="kpi-info">
+                <h3>Checklists OK</h3>
+                <div class="kpi-num" id="stat-checklists-completados" style="color: #27ae60;">0%</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EMBUDO DE APRENDIZAJE -->
+    <div>
+        <div class="funnel-header">📋 Embudo de Curva de Aprendizaje (Seguimiento 1-31 días)</div>
+        <div class="funnel-grid">
+            <!-- Etapa 1: Onboarding -->
+            <div class="funnel-box stage-1">
+                <div>
+                    <div class="funnel-title">Fase 1: Onboarding (D1-D5)</div>
+                    <div class="funnel-count" id="count-onboarding">0</div>
+                </div>
+                <div class="funnel-footer">Iniciación y PDA</div>
+            </div>
+            
+            <!-- Etapa 2: Curva de Aprendizaje -->
+            <div class="funnel-box stage-2">
+                <div>
+                    <div class="funnel-title">Fase 2: Curva (D6-D17)</div>
+                    <div class="funnel-count" id="count-curva">0</div>
+                </div>
+                <div class="funnel-footer">Consolidación l/h</div>
+            </div>
+            
+            <!-- Etapa 3: Hito 21 Días -->
+            <div class="funnel-box stage-3">
+                <div>
+                    <div class="funnel-title">Fase 3: Hito 21d (D18-D21)</div>
+                    <div class="funnel-count" id="count-hito21">0</div>
+                </div>
+                <div class="funnel-footer" style="background: #fff5f5; color: #c53030; font-weight: bold;">Revisión Crítica</div>
+            </div>
+            
+            <!-- Etapa 4: Cierre -->
+            <div class="funnel-box stage-4">
+                <div>
+                    <div class="funnel-title">Fase 4: Final (D22-D31)</div>
+                    <div class="funnel-count" id="count-final">0</div>
+                </div>
+                <div class="funnel-footer">Meta 80 l/h</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DISTRIBUCIÓN INFERIOR: FEED DE ALERTAS Y MONITOR DE PLANTA -->
+    <div class="layout-split">
+        <!-- Columna Izquierda: FEED DE ALERTAS EN VIVO -->
+        <div class="panel-pro">
+            <h2>🚨 Centro de Alertas Proactivas (En vivo)</h2>
+            <div class="alerts-list" id="alerts-container">
+                <div style="text-align: center; color: #718096; padding-top: 50px;">
+                    Cargando alertas en tiempo real...
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: MONITOR DE PLANTA EN VIVO -->
+        <div class="panel-pro">
+            <h2>⚡ Monitor de Planta (Operarios Activos Hoy)</h2>
+            <div class="monitor-list" id="monitor-container">
+                <div style="text-align: center; color: #718096; padding-top: 50px;">
+                    Cargando operarios activos...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEGUNDA FILA DE DETALLES: AGENDA Y RATIOS DE FORMACIÓN -->
+    <div class="layout-split" style="margin-top: 25px;">
+        <!-- Columna Izquierda: CALENDARIO / AGENDA DE FORMACIÓN -->
+        <div class="panel-pro">
+            <h2>📅 Clases de Formación Programadas (Agenda)</h2>
+            <div id="agenda-container" style="max-height: 420px; overflow-y: auto;">
+                <div style="text-align: center; color: #718096; padding-top: 50px;">
+                    Cargando agenda de formación...
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: IMPACTO ECONÓMICO Y RANKING DE FORMADORES -->
+        <div class="panel-pro">
+            <h2>💼 Impacto Económico y Ratios de Formación</h2>
+            <!-- Callout de impacto económico -->
+            <div style="background: #fff5f5; border: 1.5px solid #fed7d7; color: #c53030; padding: 15px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <h3 style="margin: 0; font-size: 0.95em; text-transform: uppercase; font-weight: 800;">Coste Estimado de Horas Perdidas</h3>
+                    <p style="margin: 4px 0 0 0; font-size: 0.85em; color: #742a2a;">Horas desperdiciadas o improductivas acumuladas por bajas prematuras.</p>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 1.8em; font-weight: 900;" id="txt-dinero-perdido">0,00 €</div>
+                    <div style="font-size: 0.82em; font-weight: bold;" id="txt-horas-perdidas">0:00 horas perdidas</div>
+                </div>
+            </div>
+            
+            <h3 style="color: #173D2D; font-size: 1em; font-weight: 800; border-bottom: 1.5px solid #edf2ee; padding-bottom: 6px; margin-bottom: 12px;">🎓 Ratios de Trabajo de los Formadores</h3>
+            <div id="formadores-container" style="max-height: 250px; overflow-y: auto;">
+                <div style="text-align: center; color: #718096; padding-top: 20px;">
+                    Cargando formadores...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para enviar Alertas PDA -->
+<div id="modal-alerta-pda" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 20000; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 25px; border-radius: 16px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #edf2ee;">
+        <h3 style="margin-top: 0; color: #173D2D; border-bottom: 1.5px solid #edf2ee; padding-bottom: 8px;">⚡ Enviar Alerta Directa a PDA</h3>
+        <p style="font-size: 0.9em; color: #4a5568;">El mensaje se mostrará inmediatamente como un aviso sonoro/pop-up en el escáner del operario.</p>
+        
+        <input type="hidden" id="pda-worker-id">
+        <div style="margin: 15px 0;">
+            <label style="font-weight: bold; font-size: 0.85em; display: block; margin-bottom: 6px;">Operario</label>
+            <input type="text" id="pda-worker-name" readonly style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fafbfc; font-weight: bold; box-sizing: border-box;">
+        </div>
+        
+        <div style="margin: 15px 0;">
+            <label style="font-weight: bold; font-size: 0.85em; display: block; margin-bottom: 6px;">Mensaje de advertencia</label>
+            <textarea id="pda-alert-message" rows="3" placeholder="Ej: Verifica cantidades antes de etiquetar. Tasa de error elevada hoy." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button class="secondaryButton" onclick="cerrarModalAlertaPda()" style="padding: 8px 14px; border-radius: 6px;">Cancelar</button>
+            <button class="primaryButton" onclick="enviarAlertaPdaAccion()" style="background: #173D2D; padding: 8px 14px; border-radius: 6px;">Enviar Alerta PDA</button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/dashboard_pro.js?v=1"></script>
+{% endblock %}

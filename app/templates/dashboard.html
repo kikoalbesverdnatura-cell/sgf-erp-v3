@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="/static/css/dashboard.css?v=10">
+<link rel="stylesheet" href="/static/css/dashboard_pro.css?v=5">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Limpieza defensiva de valores mock heredados en localStorage
+    if (localStorage.getItem("grafana_url") === "https://grafana.empresa.com" || localStorage.getItem("grafana_url") === "https://grafana.empresa.com/") {
+        localStorage.removeItem("grafana_url");
+    }
+    if (localStorage.getItem("grafana_uid") === "xxxxxxxx") {
+        localStorage.removeItem("grafana_uid");
+    }
+    if (localStorage.getItem("grafana_panel_prod") === "12") {
+        localStorage.removeItem("grafana_panel_prod");
+    }
+    if (localStorage.getItem("grafana_panel_error") === "15") {
+        localStorage.removeItem("grafana_panel_error");
+    }
+</script>
+
+<div class="dashboard dashboard-pro">
+
+    <!-- CABECERA -->
+    <header class="pageHeader">
+        <div>
+            <h1>Buenos días 👋</h1>
+            <p>Centro de Control · Departamento de Formación</p>
+        </div>
+        <div class="headerActions">
+            <div class="infoBox">
+                <strong id="todayDate">--</strong>
+                <span>Fecha</span>
+            </div>
+            <div class="infoBox">
+                <strong id="lastUpdate">--</strong>
+                <span>Actualización</span>
+            </div>
+            <button class="primaryButton" style="background:#ebf8ff; color:#2b6cb0; margin-right: 8px;" onclick="forzarSincronizacionCompleta()" id="btn-sync-bajas">
+                🔄 Sincronizar Salix y Deptos
+            </button>
+            <button class="primaryButton" style="background:#e8f5ee; color:#173D2D; margin-right: 8px;" onclick="openGrafanaConfig()">
+                ⚙️ Configurar Grafana
+            </button>
+            <button class="primaryButton" onclick="loadDashboard()">
+                🔄 Actualizar
+            </button>
+        </div>
+    </header>
+
+    <!-- Banner de Alerta de Impuntualidad -->
+    <div id="contenedor-banner-retrasos" style="display: none; margin-bottom: 25px;"></div>
+
+    <!-- SEMÁFOROS Y CONTADORES DE ACCESO RÁPIDO -->
+    <section class="kpiGrid">
+        <div class="kpiCard clickable" onclick="mostrarListado('Nuevas', 'incorporaciones')" style="cursor: pointer;">
+            <span>🟢 Incorporaciones</span>
+            <h2 id="kpiNuevas">0</h2>
+        </div>
+        <div class="kpiCard clickable" onclick="mostrarListado('En Seguimiento', 'seguimiento')" style="cursor: pointer;">
+            <span>👥 Personas seguimiento</span>
+            <h2 id="kpiSeguimiento">0</h2>
+        </div>
+        <div class="kpiCard danger clickable" onclick="mostrarListado('No Aptos', 'no_aptos')" style="cursor: pointer;">
+            <span>🔴 No aptos</span>
+            <h2 id="kpiNoAptos">0</h2>
+        </div>
+        <div class="kpiCard clickable" onclick="mostrarListado('Formadores', 'formadores')" style="cursor: pointer;">
+            <span>🎓 Formadores</span>
+            <h2 id="kpiFormadores">0</h2>
+        </div>
+        <div class="kpiCard danger clickable" onclick="abrirModalRiesgo()" style="cursor: pointer;">
+            <span>🚨 Riesgo alto</span>
+            <h2 id="kpiRiesgo">0</h2>
+        </div>
+        <div class="kpiCard clickable" onclick="abrirModalWhatsapp()" style="cursor: pointer;">
+            <span>💬 Whatsapp</span>
+            <h2 style="font-size: 1.5em; margin-top: 6px; font-weight: 800; line-height: 1.2;">
+                <span id="kpiWhatsappAdd" style="color: #25D366; font-size: 1.1em;">+0</span>
+                <span style="color: #cbd5e0; margin: 0 4px; font-weight: 300;">/</span>
+                <span id="kpiWhatsappRemove" style="color: #e53e3e; font-size: 1.1em;">-0</span>
+            </h2>
+        </div>
+        <div class="kpiCard clickable" onclick="abrirModalSemaforo('ROJO')" style="border-left: 5px solid #e53e3e; background: #fff5f5; cursor: pointer;">
+            <span style="color: #c53030; font-weight: 700;">🔴 Código Rojo</span>
+            <h2 id="kpiSemaforoRojo" style="color: #c53030;">0</h2>
+        </div>
+        <div class="kpiCard clickable" onclick="abrirModalSemaforo('AMARILLO')" style="border-left: 5px solid #dd6b20; background: #fffaf0; cursor: pointer;">
+            <span style="color: #c05621; font-weight: 700;">🟡 Código Amarillo</span>
+            <h2 id="kpiSemaforoAmarillo" style="color: #c05621;">0</h2>
+        </div>
+        <div class="kpiCard clickable" onclick="abrirModalSemaforo('VERDE')" style="border-left: 5px solid #38a169; background: #f0fff4; cursor: pointer;">
+            <span style="color: #2f855a; font-weight: 700;">🟢 Código Verde</span>
+            <h2 id="kpiSemaforoVerde" style="color: #2f855a;">0</h2>
+        </div>
+        <div class="kpiCard clickable" onclick="mostrarListado('Contrato Temporal', 'contrato_limitado')" style="border-left: 5px solid #3182ce; background: #ebf8ff; cursor: pointer;">
+            <span style="color: #2b6cb0; font-weight: 700;">⏳ Contrato Temporal</span>
+            <h2 id="kpiContratoLimitado" style="color: #2b6cb0;">0</h2>
+        </div>
+    </section>
+
+    <!-- SECCIÓN DE GRIDS DE LISTADOS ADICIONALES (RETROCOMPATIBILIDAD) -->
+    <section class="dashboardGrid dashboardTop" style="margin-top: 25px;">
+        <div class="panel panelLarge">
+            <h2>📅 Incorporaciones del Día</h2>
+            <div id="panelHoy" class="listPanel"></div>
+        </div>
+        <div class="panel">
+            <h2>🚦 Resumen de Estado</h2>
+            <div id="panelEstados" class="listPanel"></div>
+        </div>
+    </section>
+
+    <!-- MAIN TWO-COLUMN SPLIT CONTAINER (VISTA DE CONTROL DE MANDOS) -->
+    <div class="dashboard-split-container" style="margin-top: 15px;">
+
+        <!-- COLUMNA IZQUIERDA: OPERACIÓN formato en vivo -->
+        <div style="display: flex; flex-direction: column; gap: 25px; min-width: 0;">
+            
+            <!-- 1. Embudo de Aprendizaje -->
+            <div class="panel-pro" style="min-height: auto;">
+                <div class="funnel-header">📋 Embudo de Curva de Aprendizaje (Seguimiento 1-31 días)</div>
+                <div class="funnel-grid">
+                    <!-- Etapa 1: Onboarding -->
+                    <div class="funnel-box stage-1 clickable" onclick="abrirModalFase(1)" style="cursor: pointer;">
+                        <div>
+                            <div class="funnel-title">Fase 1: Onboarding (D1-D5)</div>
+                            <div class="funnel-count" id="count-onboarding">0</div>
+                        </div>
+                        <div class="funnel-footer">Iniciación y PDA</div>
+                    </div>
+                    
+                    <!-- Etapa 2: Curva de Aprendizaje -->
+                    <div class="funnel-box stage-2 clickable" onclick="abrirModalFase(2)" style="cursor: pointer;">
+                        <div>
+                            <div class="funnel-title">Fase 2: Curva (D6-D17)</div>
+                            <div class="funnel-count" id="count-curva">0</div>
+                        </div>
+                        <div class="funnel-footer">Consolidación l/h</div>
+                    </div>
+                    
+                    <!-- Etapa 3: Hito 21 Días -->
+                    <div class="funnel-box stage-3 clickable" onclick="abrirModalFase(3)" style="cursor: pointer;">
+                        <div>
+                            <div class="funnel-title">Fase 3: Hito 21d (D18-D21)</div>
+                            <div class="funnel-count" id="count-hito21">0</div>
+                        </div>
+                        <div class="funnel-footer" style="background: #fff5f5; color: #c53030; font-weight: bold;">Revisión Crítica</div>
+                    </div>
+                    
+                    <!-- Etapa 4: Cierre -->
+                    <div class="funnel-box stage-4 clickable" onclick="abrirModalFase(4)" style="cursor: pointer;">
+                        <div>
+                            <div class="funnel-title">Fase 4: Final (D22-D31)</div>
+                            <div class="funnel-count" id="count-final">0</div>
+                        </div>
+                        <div class="funnel-footer">Meta 80 l/h</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Alertas Proactivas (En vivo) -->
+            <div class="panel-pro">
+                <h2>🚨 Centro de Alertas Proactivas (En vivo)</h2>
+                <div class="alerts-list" id="alerts-container">
+                    <div style="text-align: center; color: #718096; padding-top: 50px;">
+                        Cargando alerts en tiempo real...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Monitor de Planta (Operarios Activos) -->
+            <div class="panel-pro">
+                <h2>⚡ Monitor de Planta (Operarios Activos Hoy)</h2>
+                <div class="monitor-list" id="monitor-container">
+                    <div style="text-align: center; color: #718096; padding-top: 50px;">
+                        Cargando operarios activos...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Agenda y Clases Programadas -->
+            <div class="panel-pro" style="min-height: auto;">
+                <h2>📅 Clases de Formación Programadas (Agenda)</h2>
+                <div id="agenda-container" style="max-height: 350px; overflow-y: auto;">
+                    <div style="text-align: center; color: #718096; padding-top: 50px;">
+                        Cargando agenda de formación...
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- COLUMNA DERECHA: DESEMPEÑO Y ANÁLISIS -->
+        <div style="display: flex; flex-direction: column; gap: 25px; min-width: 0;">
+            
+            <!-- 4. PANELES INTERACTIVOS CON PESTAÑAS (DEPARTAMENTOS, SEGUIMIENTO, ETC.) -->
+            <div class="panel-pro" style="min-height: auto;">
+                <div style="display: flex; gap: 12px; border-bottom: 2.2px solid #edf2ee; padding-bottom: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <button class="tab-btn active" onclick="switchTab(event, 'tab-seguimiento')" style="background: none; border: none; font-size: 0.9em; font-weight: 800; color: #173D2D; cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: all 0.2s;">👥 Seguimiento</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-operativo')" style="background: none; border: none; font-size: 0.9em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: all 0.2s;">⚡ Operaciones</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-departamentos')" style="background: none; border: none; font-size: 0.9em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 10px; border-radius: 6px; transition: all 0.2s;">🏢 Distribución y Carga</button>
+                </div>
+
+                <!-- TAB: SEGUIMIENTO -->
+                <div id="tab-seguimiento" class="tab-content" style="display: block;">
+                    <div class="layout-split" style="gap: 15px;">
+                        <div>
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 0 0 10px 0;">⚠ Personas en riesgo</h3>
+                            <div id="panelRiesgo" class="listPanel" style="max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 0 0 10px 0;">👥 Seguimiento Individual</h3>
+                            <div id="panelSeguimientoIndividual" class="listPanel" style="max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: OPERATIVO -->
+                <div id="tab-operativo" class="tab-content" style="display: none;">
+                    <div class="layout-split" style="gap: 15px;">
+                        <div>
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 0 0 10px 0;">📅 Personas 19-31 días</h3>
+                            <div id="panelRevision21" class="listPanel" style="max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 0 0 10px 0;">⚡ Próximas Acciones</h3>
+                            <div id="panelAcciones" class="listPanel" style="max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: DEPARTAMENTOS -->
+                <div id="tab-departamentos" class="tab-content" style="display: none;">
+                    <div class="layout-split" style="gap: 15px;">
+                        <div>
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 0 0 10px 0;">🏭 Departamentos</h3>
+                            <div id="panelDepartamentos" class="listPanel" style="max-height: 250px; overflow-y: auto;"></div>
+                            
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 15px 0 10px 0;">🎓 Pendientes de Formación (Ficha)</h3>
+                            <div id="panelPendientesFormacion" class="listPanel" style="max-height: 180px; overflow-y: auto;"></div>
+                        </div>
+                        <div>
+                            <h3 style="font-size: 0.9em; color: #1f4e3d; margin: 0 0 10px 0;">👨‍🏫 Formadores y Carga (ERP)</h3>
+                            <div id="panelFormadores" class="listPanel" style="max-height: 250px; overflow-y: auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1. Gráfico de Notas de Sacadores -->
+            <div class="panel-pro" style="min-height: auto;">
+                <h2>📊 Nota General de Sacadores (Formación)</h2>
+                <div style="padding: 0; position: relative; height: 230px; display: flex; align-items: center; justify-content: center;">
+                    <canvas id="chartNotasSacadores" style="max-height: 210px; width: 100%;"></canvas>
+                    <div id="chart-no-data-msg" style="display: none; position: absolute; color: #a0aec0; font-style: italic; font-size: 0.95em;">No hay datos de notas de sacadores activos en formación.</div>
+                </div>
+            </div>
+
+
+
+            <!-- 3. Impacto Económico y Ratios de Formación -->
+            <div class="panel-pro" style="min-height: auto;">
+                <h2>💼 Ratios e Impacto Económico</h2>
+                <!-- Callout de impacto económico -->
+                <div style="background: #fff5f5; border: 1.5px solid #fed7d7; color: #c53030; padding: 12px 15px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 0.9em; text-transform: uppercase; font-weight: 800; color: #9b2c2c;">Coste Estimado de Horas Perdidas</h3>
+                        <p style="margin: 3px 0 0 0; font-size: 0.8em; color: #742a2a;">Horas desperdiciadas o improductivas acumuladas por bajas prematuras.</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 1.6em; font-weight: 900;" id="txt-dinero-perdido">0,00 €</div>
+                        <div style="font-size: 0.8em; font-weight: bold;" id="txt-horas-perdidas">0:00 horas perdidas</div>
+                    </div>
+                </div>
+                
+                <h3 style="color: #173D2D; font-size: 0.95em; font-weight: 800; border-bottom: 1.5px solid #edf2ee; padding-bottom: 6px; margin-bottom: 12px;">🎓 Ratios de Trabajo de los Formadores</h3>
+                <div id="formadores-container" style="max-height: 200px; overflow-y: auto;">
+                    <div style="text-align: center; color: #718096; padding-top: 10px;">
+                        Cargando formadores...
+                    </div>
+                </div>
+            </div>
+
+
+
+        </div>
+
+    </div>
+
+    <!-- Grafana Configuration Modal -->
+    <div id="grafanaModal" class="modalOverlay" style="display: none;">
+        <div class="modalContent">
+            <div class="modalHeader">
+                <h2>Conexión a Grafana</h2>
+                <button class="closeButton" onclick="closeGrafanaConfig()">&times;</button>
+            </div>
+            <div class="modalBody">
+                <p class="modalDesc">Configura la conexión a tu servidor de Grafana de forma local. Los datos se guardan exclusivamente en tu navegador.</p>
+                <div class="formGroup">
+                    <label for="grafanaUrl">Servidor Grafana</label>
+                    <input type="text" id="grafanaUrl" placeholder="https://grafana.verdnatura.es">
+                </div>
+                <div class="formGroup">
+                    <label for="grafanaUid">Dashboard UID</label>
+                    <input type="text" id="grafanaUid" placeholder="ec278d81-119f-4e08-8efe-f97efacdb211">
+                </div>
+                <div class="formGroup">
+                    <label for="grafanaPanelProd">ID Panel Productividad</label>
+                    <input type="number" id="grafanaPanelProd" placeholder="3">
+                </div>
+                <div class="formGroup">
+                    <label for="grafanaPanelError">ID Panel Errores</label>
+                    <input type="number" id="grafanaPanelError" placeholder="5">
+                </div>
+                <div class="infoAlert">
+                    <strong>Requisito SRE:</strong> Asegúrate de que Grafana tiene habilitado <code>allow_embedding = true</code> en su archivo de configuración <code>grafana.ini</code>.
+                </div>
+            </div>
+            <div class="modalFooter">
+                <button class="secondaryButton" onclick="closeGrafanaConfig()">Cancelar</button>
+                <button class="primaryButton" onclick="saveGrafanaConfig()">Guardar Configuración</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Retrasos -->
+    <div id="modal-retrasos" class="modalOverlay" style="display: none;">
+        <div class="modalContent" style="max-width: 650px; max-height: 80vh;">
+            <div class="modalHeader">
+                <h2>⏰ Alerta de Impuntualidad (≥ 3 días tarde)</h2>
+                <button class="closeButton" onclick="cerrarModalRetrasos()">&times;</button>
+            </div>
+            <div class="modalBody" id="modal-retrasos-body" style="padding: 25px; overflow-y: auto; background: #f7fafc;">
+                <!-- Rellenado dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Personas en Riesgo -->
+    <div id="modal-riesgo" class="modalOverlay" style="display: none;">
+        <div class="modalContent" style="max-width: 650px; max-height: 80vh;">
+            <div class="modalHeader">
+                <h2>🚨 Personas en Riesgo Alto</h2>
+                <button class="closeButton" onclick="cerrarModalRiesgo()">&times;</button>
+            </div>
+            <div class="modalBody" id="modal-riesgo-body" style="padding: 25px; overflow-y: auto; background: #f7fafc;">
+                <!-- Rellenado dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Personas en Revisión 19-31 Días -->
+    <div id="modal-revision21" class="modalOverlay" style="display: none;">
+        <div class="modalContent" style="max-width: 650px; max-height: 80vh;">
+            <div class="modalHeader">
+                <h2>📅 Personas en Revisión (19-31 días)</h2>
+                <button class="closeButton" onclick="cerrarModalRevision21()">&times;</button>
+            </div>
+            <div class="modalBody" id="modal-revision21-body" style="padding: 25px; overflow-y: auto; background: #f7fafc;">
+                <!-- Rellenado dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Gestión de Incorporaciones a Whatsapp -->
+    <div id="modal-whatsapp" class="modalOverlay" style="display: none;">
+        <div class="modalContent" style="max-width: 650px; max-height: 80vh;">
+            <div class="modalHeader">
+                <h2>💬 Incorporaciones a WhatsApp</h2>
+                <button class="closeButton" onclick="cerrarModalWhatsapp()">&times;</button>
+            </div>
+            <div class="modalBody" style="padding: 25px; overflow-y: auto; background: #f7fafc;">
+                <div style="background: white; border: 1px solid #e2e8f0; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span style="font-weight: bold; color: #2d3748; font-size: 0.95em;">🔗 Enlace de invitación al grupo:</span>
+                        <button onclick="toggleEditarEnlaceWhatsapp()" id="btn-editar-link" style="background: none; border: none; color: #319795; font-weight: bold; cursor: pointer; font-size: 0.88em; text-decoration: underline;">Editar enlace</button>
+                    </div>
+                    <div id="link-display-container" style="display: flex; align-items: center; gap: 8px;">
+                        <span id="whatsapp-group-link-text" style="font-family: monospace; color: #4a5568; background: #f7fafc; padding: 6px 12px; border-radius: 6px; border: 1px solid #edf2f7; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Cargando enlace...</span>
+                        <a id="whatsapp-join-btn" href="#" target="_blank" style="background: #25D366; color: white; text-decoration: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.9em; display: flex; align-items: center; gap: 4px; transition: all 0.2s;" onmouseenter="this.style.background='#128C7E'" onmouseleave="this.style.background='#25D366'">
+                            Ir al grupo ➜
+                        </a>
+                    </div>
+                    <div id="link-edit-container" style="display: none; align-items: center; gap: 8px;">
+                        <input type="text" id="whatsapp-group-link-input" style="flex-grow: 1; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e0;" placeholder="https://chat.whatsapp.com/...">
+                        <button onclick="guardarEnlaceWhatsapp()" style="background: #173D2D; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.9em; cursor: pointer; transition: all 0.2s;" onmouseenter="this.style.background='#255340'" onmouseleave="this.style.background='#173D2D'">
+                            Guardar
+                        </button>
+                        <button onclick="cancelarEdicionEnlaceWhatsapp()" style="background: #e2e8f0; color: #4a5568; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; font-size: 0.9em; cursor: pointer;">
+                             Cancelar
+                        </button>
+                    </div>
+                </div>
+                <div id="modal-whatsapp-body">
+                    <!-- Rellenado dinámicamente -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Semáforos -->
+    <div id="modal-semaforo" class="modalOverlay" style="display: none;">
+        <div class="modalContent" style="max-width: 650px; max-height: 80vh;">
+            <div class="modalHeader">
+                <h2 id="modal-semaforo-titulo">🚦 Personas</h2>
+                <button class="closeButton" onclick="cerrarModalSemaforo()">&times;</button>
+            </div>
+            <div class="modalBody" id="modal-semaforo-body" style="padding: 25px; overflow-y: auto; background: #f7fafc;">
+                <!-- Rellenado dinámicamente -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Completar Formación -->
+    <div id="modal-completar-formacion" class="modalOverlay" style="display: none;">
+        <div class="modalContent" style="max-width: 550px; max-height: 90vh;">
+            <div class="modalHeader">
+                <h2>🎓 Registrar Formación</h2>
+                <button class="closeButton" onclick="cerrarModalCompletarFormacion()">&times;</button>
+            </div>
+            <form id="form-completar-formacion" onsubmit="guardarRegistroFormacion(event)">
+                <input type="hidden" id="form-formacion-id">
+                <div class="modalBody" style="padding: 25px; display: flex; flex-direction: column; gap: 15px; background: #f7fafc; overflow-y: auto;">
+                    <div class="formGroup">
+                        <label for="form-formacion-nombre" style="font-weight: bold; color: #2d3748; margin-bottom: 6px; display: block;">Colaborador</label>
+                        <input type="text" id="form-formacion-nombre" readonly style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e0; background: #e2e8f0; color: #4a5568; font-weight: bold;">
+                    </div>
+                    <div class="formGroup">
+                        <label for="form-formacion-fecha" style="font-weight: bold; color: #2d3748; margin-bottom: 6px; display: block;">Fecha de Formación</label>
+                        <input type="date" id="form-formacion-fecha" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e0; background: white; color: #2d3748;">
+                    </div>
+                    <div class="formGroup">
+                        <label for="form-formacion-tipo" style="font-weight: bold; color: #2d3748; margin-bottom: 6px; display: block;">Tipo de Formación</label>
+                        <select id="form-formacion-tipo" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e0; background: white; color: #2d3748;">
+                            <option value="Aula S. 0">Aula S. 0</option>
+                            <option value="Aula S. 1">Aula S. 1</option>
+                            <option value="Aula S. 2">Aula S. 2</option>
+                            <option value="Cámara">Cámara</option>
+                        </select>
+                    </div>
+                    <div class="formGroup">
+                        <label for="form-formacion-formador" style="font-weight: bold; color: #2d3748; margin-bottom: 6px; display: block;">Formador / Tutor</label>
+                        <select id="form-formacion-formador" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e0; background: white; color: #2d3748;">
+                            <option value="">Selecciona un formador...</option>
+                        </select>
+                    </div>
+                    <div class="formGroup">
+                        <label for="form-formacion-duracion" style="font-weight: bold; color: #2d3748; margin-bottom: 6px; display: block;">Duración</label>
+                        <select id="form-formacion-duracion" required style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e0; background: white; color: #2d3748;">
+                            <option value="0:30">30 min (0:30)</option>
+                            <option value="1:00" selected>1 hora (1:00)</option>
+                            <option value="1:30">1 hora 30 min (1:30)</option>
+                            <option value="2:00">2 horas (2:00)</option>
+                            <option value="3:00">3 horas (3:00)</option>
+                            <option value="4:00">4 horas (4:00)</option>
+                        </select>
+                    </div>
+                    <div class="formGroup">
+                        <label for="form-formacion-observaciones" style="font-weight: bold; color: #2d3748; margin-bottom: 6px; display: block;">Observaciones</label>
+                        <textarea id="form-formacion-observaciones" rows="3" placeholder="Detalles de la sesión..." style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e0; background: white; color: #2d3748; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+                    </div>
+                </div>
+                <div class="modalFooter" style="padding: 15px 25px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #edf2f7; background: white;">
+                    <button type="button" class="secondaryButton" onclick="cerrarModalCompletarFormacion()">Cancelar</button>
+                    <button type="submit" class="primaryButton" style="background: #173D2D; color: white;">Guardar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para enviar Alertas PDA -->
+    <div id="modal-alerta-pda" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 20000; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 25px; border-radius: 16px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #edf2ee;">
+            <h3 style="margin-top: 0; color: #173D2D; border-bottom: 1.5px solid #edf2ee; padding-bottom: 8px;">⚡ Enviar Alerta Directa a PDA</h3>
+            <p style="font-size: 0.9em; color: #4a5568;">El mensaje se mostrará inmediatamente como un aviso sonoro/pop-up en el escáner del operario.</p>
+            <input type="hidden" id="pda-worker-id">
+            <div style="margin: 15px 0;">
+                <label style="font-weight: bold; font-size: 0.85em; display: block; margin-bottom: 6px;">Operario</label>
+                <input type="text" id="pda-worker-name" readonly style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fafbfc; font-weight: bold; box-sizing: border-box;">
+            </div>
+            <div style="margin: 15px 0;">
+                <label style="font-weight: bold; font-size: 0.85em; display: block; margin-bottom: 6px;">Mensaje de advertencia</label>
+                <textarea id="pda-alert-message" rows="3" placeholder="Ej: Verifica cantidades antes de etiquetar. Tasa de error elevada hoy." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                <button class="secondaryButton" onclick="cerrarModalAlertaPda()" style="padding: 8px 14px; border-radius: 6px;">Cancelar</button>
+                <button class="primaryButton" onclick="enviarAlertaPdaAccion()" style="background: #173D2D; padding: 8px 14px; border-radius: 6px;">Enviar Alerta PDA</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/js/dashboard.js?v=30"></script>
+
+{% endblock %}
