@@ -57,6 +57,9 @@ def ejecutar_sincronizacion():
                     salix_by_id[w_id] = {"id": w_id, "department": dept}
                     
         print(f"Se obtuvieron {len(salix_by_id)} trabajadores activos desde la base de datos de Salix.")
+        if not salix_by_id:
+            print("Error: La consulta de Salix no devolvió trabajadores. Abortando para evitar falsos positivos de bajas en lote.")
+            return False
     except Exception as e:
         print(f"Error consultando departamentos en Grafana: {e}")
         return False
@@ -65,7 +68,7 @@ def ejecutar_sincronizacion():
     print("2. Cargando trabajadores activos de Google Sheets...")
     from app.services.persona_service import obtener_personas, guardar_overrides_batch
     try:
-        personas = obtener_personas(excluir_equipo=False)
+        personas = obtener_personas(excluir_equipo=False, filtrar_dias=False)
         print(f"Se cargaron {len(personas)} personas desde las hojas de cálculo.")
     except Exception as e:
         print(f"Error cargando personas: {e}")

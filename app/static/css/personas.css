@@ -7,6 +7,16 @@
     border: 2px solid #e2e8f0;
     display: block;
     margin: 0 auto;
+    transition: transform 0.18s ease-in-out, box-shadow 0.18s ease-in-out, border-color 0.18s;
+}
+
+.tabla-avatar:hover {
+    transform: scale(3.5);
+    position: relative;
+    z-index: 100;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+    border-color: #173D2D;
+    cursor: zoom-in;
 }
 
 /* Row styling when risk is ALTO (red) */

@@ -56,8 +56,79 @@ class WorkerService:
         resolved_worker_fk = self._resolve_worker_fk(worker_id, worker_name, cookies)
         logger.info(f"Worker ID {worker_id} ({worker_name}) mapeado a workerFk de Grafana: {resolved_worker_fk}")
 
-        # SQL productivity aligned with vigfp89
-        sql_productivity = f"""
+        is_encajador = "ENCAJADO" in worker_dept.upper()
+        
+        if is_encajador:
+            sql_productivity = f"""
+            WITH wTickets AS (
+                SELECT t.id, t.volume, COUNT(DISTINCT s.id) totalLines
+                FROM ticket t FORCE INDEX (Fecha)
+                JOIN sale s ON s.ticketFk = t.id
+                JOIN ticketCollection tc ON tc.ticketFk = t.id
+                JOIN collection c ON c.id = tc.collectionFk
+                WHERE c.itemPackingTypeFk = 'H'
+                  AND t.totalWithoutVat > 0
+                  AND s.quantity > 0
+                GROUP BY t.id
+            ), wData AS (
+                SELECT tt.ticketFk,
+                       tt.userFk,
+                       DATE(tt.created) as workDate,
+                       TIMEDIFF(
+                           MAX(CASE WHEN s.code = 'PACKED'  THEN tt.created END),
+                           MIN(CASE WHEN s.code = 'PACKING' THEN tt.created END)
+                       ) diff,
+                       t.volume,
+                       t.totalLines
+                FROM ticketTracking tt
+                JOIN state s ON s.id = tt.stateFk
+                JOIN wTickets t ON t.id = tt.ticketFk
+                WHERE s.code IN ('PACKING', 'PACKED')
+                  AND tt.userFk = {resolved_worker_fk}
+                  AND tt.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                GROUP BY tt.ticketFk, tt.userFk, DATE(tt.created)
+                HAVING TIME_TO_SEC(diff) < 3600
+            ), dailySum AS (
+                SELECT 
+                    workDate,
+                    SUM(totalLines) as totalLines,
+                    SUM(TIME_TO_SEC(diff)) as totalSeconds,
+                    SUM(volume) as totalVolume,
+                    COUNT(DISTINCT ticketFk) as totalTickets
+                FROM wData
+                GROUP BY workDate
+            ), dailyTimeControl AS (
+                SELECT 
+                    DATE(wj.dated) workDate, 
+                    SUM(wj.total) dailyHoursWorked
+                FROM workerJourney wj
+                WHERE wj.userFk = {resolved_worker_fk}
+                  AND wj.dated >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                GROUP BY DATE(wj.dated)
+            )
+            SELECT 
+                UNIX_TIMESTAMP(ds.workDate) * 1000 AS workDate,
+                {resolved_worker_fk} AS workerFk,
+                '' AS worker,
+                (ds.totalSeconds / 3600) AS totalHoursAction,
+                IFNULL(dtc.dailyHoursWorked, 0) AS totalHoursJourney,
+                ds.totalLines AS totalLines,
+                ((ds.totalSeconds / 3600) * 120) AS expectedLines,
+                (ds.totalLines / NULLIF(((ds.totalSeconds / 3600) * 120), 0)) AS percentaje,
+                IF(IFNULL(dtc.dailyHoursWorked, 0) > 0, ds.totalLines / dtc.dailyHoursWorked, 0) AS linesPerHourJourney,
+                IF(IFNULL(dtc.dailyHoursWorked, 0) > 0, ds.totalVolume / dtc.dailyHoursWorked, 0) AS volumePerHourJourney,
+                IF(ds.totalSeconds > 0, ds.totalVolume / (ds.totalSeconds / 3600), 0) AS volumePerHourAction,
+                IF(ds.totalSeconds > 0, ds.totalLines / (ds.totalSeconds / 3600), 0) AS linesHour,
+                ds.totalVolume AS totalVolume,
+                0 AS totalPositive,
+                0 AS totalNegative,
+                0 AS Ratio
+            FROM dailySum ds
+            LEFT JOIN dailyTimeControl dtc ON dtc.workDate = ds.workDate
+            ORDER BY ds.workDate DESC
+            """
+        else:
+            sql_productivity = f"""
 WITH timePrep AS (
   WITH collectionTimes AS (
     SELECT tc.collectionFk,
@@ -78,6 +149,7 @@ WITH timePrep AS (
         LEFT JOIN mistakeType mt ON mt.id = sm.typeFk
       WHERE s.code IN ('PREPARED')
         AND st.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        AND st.workerFk = {resolved_worker_fk}
       GROUP BY tc.collectionFk, c.workerFk, DATE(st.created)
       HAVING timeTo
   ), collectionLines AS (
@@ -124,6 +196,7 @@ WITH timePrep AS (
         WHERE s.code IN ('PREVIOUS_PREPARATION')
           AND st.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
           AND sg.userFk <> c.workerFk
+          AND sg.userFk = {resolved_worker_fk}
         GROUP BY st.saleFk
     )
     SELECT sectorCollectionFk,
@@ -177,6 +250,7 @@ WITH timePrep AS (
       SUM(wj.total) dailyHoursWorked
     FROM workerJourney wj
     WHERE wj.dated >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      AND wj.userFk = {resolved_worker_fk}
     GROUP BY wj.userFk, DATE(wj.dated)
 ), workerMode AS (
   SELECT 

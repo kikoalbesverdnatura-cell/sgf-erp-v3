@@ -345,6 +345,45 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False):
         GROUP BY ct.workerFk, c.itemPackingTypeFk
         """
 
+        sql_encajadores = f"""
+        WITH wTickets AS (
+            SELECT t.id, t.volume, COUNT(DISTINCT s.id) totalLines
+            FROM ticket t FORCE INDEX (Fecha)
+            JOIN sale s ON s.ticketFk = t.id
+            JOIN ticketCollection tc ON tc.ticketFk = t.id
+            JOIN collection c ON c.id = tc.collectionFk
+            WHERE c.itemPackingTypeFk = 'H'
+              AND t.totalWithoutVat > 0
+              AND s.quantity > 0
+            GROUP BY t.id
+        ), wData AS (
+            SELECT tt.ticketFk,
+                   tt.userFk,
+                   TIMEDIFF(
+                       MAX(CASE WHEN s.code = 'PACKED'  THEN tt.created END),
+                       MIN(CASE WHEN s.code = 'PACKING' THEN tt.created END)
+                   ) diff,
+                   t.volume,
+                   t.totalLines
+            FROM ticketTracking tt
+            JOIN state s ON s.id = tt.stateFk
+            JOIN wTickets t ON t.id = tt.ticketFk
+            WHERE s.code IN ('PACKING', 'PACKED')
+              AND tt.userFk IN ({','.join(active_ids)})
+              AND tt.created >= DATE_SUB(NOW(), INTERVAL 14 DAY)
+            GROUP BY tt.ticketFk, tt.userFk
+            HAVING TIME_TO_SEC(diff) < 3600
+        )
+        SELECT 
+            userFk AS id_trabajador,
+            SUM(totalLines) / ((SUM(TIME_TO_SEC(diff)) / 3600) * 120) AS rendimiento,
+            SUM(totalLines) / (SUM(TIME_TO_SEC(diff)) / 3600) AS lineas_hora,
+            SUM(totalLines) AS total_lineas,
+            SUM(volume) / (SUM(TIME_TO_SEC(diff)) / 3600) AS volumen_hora
+        FROM wData
+        GROUP BY userFk
+        """
+
         payload = [
             {
                 "refId": "A",
@@ -357,12 +396,18 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False):
                 "datasource": {"uid": "000000003"},
                 "rawSql": sql_hv,
                 "format": "table"
+            },
+            {
+                "refId": "C",
+                "datasource": {"uid": "000000003"},
+                "rawSql": sql_encajadores,
+                "format": "table"
             }
         ]
 
         res = client.query_datasource(payload)
         
-        # Procesar resultados A
+        # Procesar resultados A (Sacadores)
         frames_a = res.get("results", {}).get("A", {}).get("frames", [])
         if frames_a and len(frames_a[0].get("data", {}).get("values", [])) > 0:
             values = frames_a[0]["data"]["values"]
@@ -372,6 +417,25 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False):
                 lh = values[2][i]
                 tot_lines = values[3][i] if len(values) > 3 else 0
                 vol_h = values[4][i] if len(values) > 4 else 0.0
+                resultado[w_id] = {
+                    "rendimiento": f"{rend * 100:.1f}%" if rend else "",
+                    "lineas_hora": f"{lh:.1f}" if lh else "",
+                    "total_lineas": int(tot_lines) if tot_lines else 0,
+                    "volumen_hora": float(vol_h) if vol_h else 0.0,
+                    "horas_h": 0.0,
+                    "horas_v": 0.0
+                }
+
+        # Procesar resultados C (Encajadores H)
+        frames_c = res.get("results", {}).get("C", {}).get("frames", [])
+        if frames_c and len(frames_c[0].get("data", {}).get("values", [])) > 0:
+            values_c = frames_c[0]["data"]["values"]
+            for i in range(len(values_c[0])):
+                w_id = str(values_c[0][i])
+                rend = values_c[1][i]
+                lh = values_c[2][i]
+                tot_lines = values_c[3][i] if len(values_c) > 3 else 0
+                vol_h = values_c[4][i] if len(values_c) > 4 else 0.0
                 resultado[w_id] = {
                     "rendimiento": f"{rend * 100:.1f}%" if rend else "",
                     "lineas_hora": f"{lh:.1f}" if lh else "",
@@ -733,28 +797,34 @@ def obtener_personas(excluir_equipo=False, filtrar_dias=True):
         total_lineas = g_perf.get("total_lineas", 0) if g_perf else 0
         persona_mapeada["color_code"] = calcular_color_semaforo(persona_mapeada, pct_val, err_val, total_lineas)
  
-        # Filtrar por departamento (sólo SACADO H, SACADO V, TALLER NATURAL)
         dept_norm = str(persona_mapeada.get("departamento") or "").upper().strip()
         import unicodedata
         dept_clean = "".join(c for c in unicodedata.normalize('NFD', dept_norm) if unicodedata.category(c) != 'Mn')
         dept_clean = " ".join(dept_clean.split())
-        
-        if dept_clean not in ("SACADO H", "SACADO V", "TALLER NATURAL"):
-            continue
+
+        # Filtrar por departamento (sólo SACADO H, SACADO V, TALLER NATURAL, ENCAJADO H, ENCAJADO V) si filtrar_dias es True
+        if filtrar_dias:
+            if dept_clean not in ("SACADO H", "SACADO V", "TALLER NATURAL", "ENCAJADO H", "ENCAJADO V"):
+                continue
             
-        # Filtrar por días (sólo del 1 al 31)
+        # Filtrar por días (del 0 al 31)
         if filtrar_dias:
             try:
                 dias_val = int(persona_mapeada.get("dias") or 0)
-                if dias_val < 1 or dias_val > 31:
+                if dias_val < 0 or dias_val > 31:
                     continue
             except (ValueError, TypeError):
                 continue
  
-        # Calcular nota y horas H/V para sacadores
+        # Calcular nota y horas H/V para sacadores/encajadores
         lh = g_perf.get("lineas_hora", 0.0) if g_perf else 0.0
         vol_h = g_perf.get("volumen_hora", 0.0) if g_perf else 0.0
-        nota_val = calcular_nota_sacador(lh, vol_h)
+        
+        if "ENCAJADO" in dept_clean:
+            nota_val = calcular_nota_encajador(lh, vol_h)
+        else:
+            nota_val = calcular_nota_sacador(lh, vol_h)
+            
         persona_mapeada["nota"] = nota_val
         persona_mapeada["horas_h"] = g_perf.get("horas_h", 0.0) if g_perf else 0.0
         persona_mapeada["horas_v"] = g_perf.get("horas_v", 0.0) if g_perf else 0.0
@@ -767,6 +837,33 @@ def obtener_personas(excluir_equipo=False, filtrar_dias=True):
         _mapped_personas_timestamp = ahora
  
     return resultado
+
+
+def calcular_nota_encajador(lineas_hora, volumen_hora):
+    try:
+        lh = float(lineas_hora or 0.0)
+        vol = float(volumen_hora or 0.0)
+        
+        # Escala líneas/hora (objetivo 120): min 40, max 160
+        if lh <= 40.0:
+            nota_lh = 0.0
+        elif lh >= 160.0:
+            nota_lh = 1.0
+        else:
+            nota_lh = (lh - 40.0) / 120.0
+            
+        # Escala volumen/hora (objetivo 3.0): min 0.5, max 4.0
+        if vol <= 0.5:
+            nota_vol = 0.0
+        elif vol >= 4.0:
+            nota_vol = 1.0
+        else:
+            nota_vol = (vol - 0.5) / 3.5
+            
+        nota_final = 10.0 * (0.75 * nota_lh + 0.25 * nota_vol)
+        return round(nota_final, 2)
+    except Exception:
+        return 0.0
 
 
 def calcular_nota_sacador(lineas_hora, volumen_hora):
@@ -815,7 +912,13 @@ def obtener_persona(id_trabajador, incluir_grafana=False):
             if g_perf:
                 lh = g_perf.get("lineas_hora", 0.0)
                 vol_h = g_perf.get("volumen_hora", 0.0)
-                nota = calcular_nota_sacador(lh, vol_h)
+                
+                dept_norm = str(datos_persona.get("departamento") or "").upper().strip()
+                if "ENCAJADO" in dept_norm:
+                    nota = calcular_nota_encajador(lh, vol_h)
+                else:
+                    nota = calcular_nota_sacador(lh, vol_h)
+                    
                 datos_persona["nota"] = nota
                 datos_persona["horas_h"] = g_perf.get("horas_h", 0.0)
                 datos_persona["horas_v"] = g_perf.get("horas_v", 0.0)
@@ -1321,11 +1424,26 @@ def mapear_persona(p, overrides=None, horas_formacion=None):
     }
 
 
+def invalidar_cache_personas():
+    global _mapped_personas_cache, _mapped_personas_timestamp
+    with _mapped_personas_lock:
+        _mapped_personas_cache.clear()
+        _mapped_personas_timestamp = 0.0
+    
+    # Forzar invalidación del caché serializado del dashboard
+    try:
+        from app.services import dashboard_service
+        with dashboard_service._cache_lock:
+            dashboard_service._cache_datos = None
+    except Exception:
+        pass
+
+
 def guardar_checklist_persona(datos):
     try:
         id_trabajador = datos.get("id")
         campo = datos.get("campo")
-        valor = datos.get("valor")
+        valor = datos.get("valor") if datos.get("valor") is not None else datos.get("value")
 
         if not id_trabajador or not campo:
             return {"ok": False, "error": "Faltan campos id o campo"}
@@ -1350,25 +1468,25 @@ def guardar_checklist_persona(datos):
         # 1. Actualización optimista e inmediata en caché de memoria
         actualizar_campo_en_cache_maestro(id_trabajador, columna, bool_val)
 
-        # Forzar invalidación únicamente del caché serializado del dashboard
-        try:
-            from app.services import dashboard_service
-            with dashboard_service._cache_lock:
-                dashboard_service._cache_datos = None
-        except Exception:
-            pass
+        # Forzar invalidación de los cachés mapeados
+        invalidar_cache_personas()
 
         # 2. Ejecutar escritura en Google Sheets en segundo plano en un hilo independiente
         def task_checklist():
             try:
                 documento_bg = abrir_documento(DOCUMENTO)
                 hoja_bg = documento_bg.worksheet(HOJA)
-                registros_bg = obtener_filas_maestro_personas(forzar_refresco=True) # Actualizar maestro de fondo
+                registros_bg = obtener_filas_maestro_personas(forzar_refresco=False) # Usar caché para resolver índices rápido
                 fila_idx_bg = None
                 for idx_bg, r_bg in enumerate(registros_bg):
                     if str(r_bg.get("ID_Trabajador", "")).strip() == str(id_trabajador).strip():
-                        fila_idx_bg = idx_bg + 2
-                        break
+                        act_val = str(r_bg.get("ACTIVO", "")).strip().upper()
+                        fin_val = str(r_bg.get("FINALIZADO", "")).strip().upper()
+                        if act_val == "SÍ" or fin_val not in ("SÍ", "SI"):
+                            fila_idx_bg = idx_bg + 2
+                            break
+                        if fila_idx_bg is None:
+                            fila_idx_bg = idx_bg + 2
                 if fila_idx_bg:
                     encabezados_bg = hoja_bg.row_values(1)
                     col_idx_bg = encabezados_bg.index(columna) + 1
@@ -1396,6 +1514,10 @@ def guardar_checklist_persona(datos):
                         ]
                     }
                     hoja_bg.spreadsheet.batch_update(body)
+                    
+                    # Refrescar caché del maestro tras escribir y vaciar mapeados
+                    obtener_filas_maestro_personas(forzar_refresco=True)
+                    invalidar_cache_personas()
             except Exception as e:
                 print(f"Background write checklist failed for {id_trabajador}: {e}")
 
@@ -1450,18 +1572,7 @@ def actualizar_campo_persona(datos):
         actualizar_campo_en_cache_maestro(id_trabajador, columna, valor)
 
         # Invalidar la caché de personas mapeadas para que los cambios se reflejen de inmediato
-        global _mapped_personas_cache, _mapped_personas_timestamp
-        with _mapped_personas_lock:
-            _mapped_personas_cache.clear()
-            _mapped_personas_timestamp = 0.0
-
-        # Forzar invalidación únicamente del caché serializado del dashboard
-        try:
-            from app.services import dashboard_service
-            with dashboard_service._cache_lock:
-                dashboard_service._cache_datos = None
-        except Exception:
-            pass
+        invalidar_cache_personas()
 
         # 2. Ejecutar escritura en Google Sheets en segundo plano
         def task_maestro():
@@ -1472,8 +1583,13 @@ def actualizar_campo_persona(datos):
                 fila_idx_bg = None
                 for idx_bg, r_bg in enumerate(registros_bg):
                     if str(r_bg.get("ID_Trabajador", "")).strip() == str(id_trabajador).strip():
-                        fila_idx_bg = idx_bg + 2
-                        break
+                        act_val = str(r_bg.get("ACTIVO", "")).strip().upper()
+                        fin_val = str(r_bg.get("FINALIZADO", "")).strip().upper()
+                        if act_val == "SÍ" or fin_val not in ("SÍ", "SI"):
+                            fila_idx_bg = idx_bg + 2
+                            break
+                        if fila_idx_bg is None:
+                            fila_idx_bg = idx_bg + 2
                 if fila_idx_bg:
                     encabezados_bg = hoja_bg.row_values(1)
                     try:
@@ -2173,6 +2289,10 @@ def sincronizar_bajas_salix(forzar_refresco=False):
                         dept = depts[i]
                         salix_active[w_id] = dept
             
+            if not salix_active:
+                logger.warning("Sincronizador Salix: la consulta de departamentos en Salix no devolvió resultados. Abortando sincronización para evitar falsos positivos.")
+                return {"ok": False, "error": "La consulta de Salix no devolvió datos de trabajadores activos. Abortando sync."}
+            
             # Detectar quiénes han salido o no tienen departamento activo
             bajas_detectadas = []
             for w_id in active_workers:
@@ -2187,6 +2307,15 @@ def sincronizar_bajas_salix(forzar_refresco=False):
                     actualizar_campo_persona({"id": w_id, "campo": "finalizado", "valor": "SÍ"})
                     actualizar_campo_persona({"id": w_id, "campo": "estado", "valor": "Terminado"})
                     actualizar_campo_persona({"id": w_id, "campo": "riesgo", "valor": "-"})
+                else:
+                    # Sincronizar departamento si ha cambiado en Salix
+                    f_row = next((row for row in filas if str(row.get("ID_Trabajador", "")).strip() == w_id), None)
+                    if f_row:
+                        dept_mae = str(f_row.get("DEPARTAMENTO_ORIGEN", "")).strip()
+                        dept_salix = str(dept).strip()
+                        if dept_salix and dept_salix != dept_mae:
+                            logger.info(f"Sincronizador Salix: detectado cambio de departamento para ID {w_id}: {dept_mae} -> {dept_salix}")
+                            actualizar_campo_persona({"id": w_id, "campo": "departamento", "valor": dept_salix})
             
             _last_salix_sync_time = ahora
             return {

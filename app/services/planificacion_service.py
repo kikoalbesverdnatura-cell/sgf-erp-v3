@@ -185,12 +185,13 @@ def obtener_datos_tablero() -> dict:
         "equipos": equipos
     }
 
-def asignar_tutor(id_novato: str, tutor: str) -> dict:
+def asignar_tutor(id_novato: str, tutor: str, rrhh: bool = None, uniforme: bool = None, almuerzo: bool = None, tour: bool = None) -> dict:
     """
-    Asigna o remueve un tutor de un trabajador en formación en el Maestro de Google Sheets.
+    Asigna o remueve un tutor de un trabajador en formación en el Maestro de Google Sheets,
+    y opcionalmente actualiza los checks del checklist en lote.
     """
     try:
-        logger.info(f"Asignando tutor '{tutor}' al trabajador ID '{id_novato}'...")
+        logger.info(f"Asignando tutor '{tutor}' y checklist al trabajador ID '{id_novato}'...")
         documento = abrir_documento(DOCUMENTO)
         hoja = documento.worksheet(HOJA)
 
@@ -199,28 +200,115 @@ def asignar_tutor(id_novato: str, tutor: str) -> dict:
         fila_index = None
         for idx, r in enumerate(registros):
             if str(r.get("ID_Trabajador", "")).strip() == str(id_novato).strip():
-                fila_index = idx + 2  # +2 por cabecera y base 1 de Sheets
-                break
+                act_val = str(r.get("ACTIVO", "")).strip().upper()
+                fin_val = str(r.get("FINALIZADO", "")).strip().upper()
+                if act_val == "SÍ" or fin_val not in ("SÍ", "SI"):
+                    fila_index = idx + 2
+                    break
+                if fila_index is None:
+                    fila_index = idx + 2
 
         if fila_index is None:
             logger.error(f"Trabajador ID {id_novato} no encontrado para asignacion.")
             return {"ok": False, "error": f"Trabajador con ID {id_novato} no encontrado."}
 
-        # Localizar la columna TUTOR_ASIGNADO
         encabezados = hoja.row_values(1)
+        
+        updates = []
+        
+        # 1. Tutor
         try:
-            col_idx = encabezados.index("TUTOR_ASIGNADO") + 1
+            col_tutor = encabezados.index("TUTOR_ASIGNADO") + 1
+            nuevo_valor = tutor.strip() if tutor else ""
+            updates.append({"col": col_tutor, "val": nuevo_valor, "header": "TUTOR_ASIGNADO"})
         except ValueError:
             logger.error("Columna TUTOR_ASIGNADO no encontrada en la hoja.")
             return {"ok": False, "error": "Columna TUTOR_ASIGNADO no encontrada en el Maestro."}
+            
+        # 2. RRHH
+        if rrhh is not None:
+            try:
+                col_rrhh = encabezados.index("RRHH") + 1
+                updates.append({"col": col_rrhh, "val": rrhh, "header": "RRHH", "is_bool": True})
+            except ValueError:
+                pass
+                
+        # 3. Uniforme
+        if uniforme is not None:
+            try:
+                col_uniforme = encabezados.index("UNIFORME") + 1
+                updates.append({"col": col_uniforme, "val": uniforme, "header": "UNIFORME", "is_bool": True})
+            except ValueError:
+                pass
+                
+        # 4. Almuerzo
+        if almuerzo is not None:
+            try:
+                col_almuerzo = encabezados.index("ALMUERZO") + 1
+                updates.append({"col": col_almuerzo, "val": almuerzo, "header": "ALMUERZO", "is_bool": True})
+            except ValueError:
+                pass
+                
+        # 5. Tour
+        if tour is not None:
+            try:
+                col_tour = encabezados.index("TOUR_EMPRESA") + 1
+                updates.append({"col": col_tour, "val": tour, "header": "TOUR_EMPRESA", "is_bool": True})
+            except ValueError:
+                pass
 
-        nuevo_valor = tutor.strip() if tutor else ""
+        # Generar las peticiones del batch update
+        requests = []
+        for u in updates:
+            col_idx = u["col"]
+            val = u["val"]
+            if u.get("is_bool"):
+                requests.append({
+                    "updateCells": {
+                        "range": {
+                            "sheetId": hoja.id,
+                            "startRowIndex": fila_index - 1,
+                            "endRowIndex": fila_index,
+                            "startColumnIndex": col_idx - 1,
+                            "endColumnIndex": col_idx
+                        },
+                        "rows": [
+                            {"values": [{"userEnteredValue": {"boolValue": val}}]}
+                        ],
+                        "fields": "userEnteredValue"
+                    }
+                })
+            else:
+                requests.append({
+                    "updateCells": {
+                        "range": {
+                            "sheetId": hoja.id,
+                            "startRowIndex": fila_index - 1,
+                            "endRowIndex": fila_index,
+                            "startColumnIndex": col_idx - 1,
+                            "endColumnIndex": col_idx
+                        },
+                        "rows": [
+                            {"values": [{"userEnteredValue": {"stringValue": val}}]}
+                        ],
+                        "fields": "userEnteredValue"
+                    }
+                })
+
+        # Ejecutar escritura en lote en Sheets
+        hoja.spreadsheet.batch_update({"requests": requests})
+        logger.info(f"Asignacion y checklist guardados con exito en Fila {fila_index}.")
         
-        # Actualizar celda en Sheets
-        hoja.update_cell(fila_index, col_idx, nuevo_valor)
-        logger.info(f"Asignacion guardada con exito en Fila {fila_index}, Columna {col_idx}.")
-        
+        # Actualizar caché en memoria de forma reactiva
+        try:
+            from app.services.persona_service import actualizar_campo_en_cache_maestro, invalidar_cache_personas
+            for u in updates:
+                actualizar_campo_en_cache_maestro(id_novato, u["header"], u["val"])
+            invalidar_cache_personas()
+        except Exception as cache_err:
+            logger.error(f"Error actualizando cache de tutor y checklist: {cache_err}")
+            
         return {"ok": True}
     except Exception as e:
-        logger.error(f"Error asignando tutor: {e}")
+        logger.error(f"Error asignando tutor y checklist: {e}")
         return {"ok": False, "error": str(e)}

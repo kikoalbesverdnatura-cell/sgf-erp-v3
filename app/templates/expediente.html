@@ -2,6 +2,15 @@
 
 {% block content %}
 
+<script>
+    window.currentUser = {
+        id: "{{ usuario.id if usuario else '' }}",
+        nombre: "{{ usuario.nombre if usuario else '' }}",
+        usuario: "{{ usuario.usuario if usuario else '' }}",
+        rol: "{{ usuario.rol if usuario else '' }}"
+    };
+</script>
+
 <div class="expediente">
 
     <div class="expediente-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
@@ -207,10 +216,13 @@
 
             <!-- Formación Recibida (Clases) -->
             <div class="panel" id="panel-formacion-recibida" style="display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); padding: 20px;">
-                <div style="border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
                         <span>🎓</span> Formación Recibida (Historial de Clases)
                     </h2>
+                    <button onclick="abrirModalRegistrarClase()" class="btn-primary" style="background: #1a5c37; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s ease;">
+                        ➕ Añadir Clase
+                    </button>
                 </div>
                 
                 <!-- Métricas de horas recibidas -->
@@ -440,10 +452,60 @@
 
 </div>
 
+<!-- MODAL REGISTRAR CLASE DE FORMACIÓN -->
+<div id="modal-registrar-clase" class="modalOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px);">
+    <div class="modalContent" style="background: white; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden;">
+        <div class="modalHeader" style="background: #1a5c37; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1em; font-weight: 700; color: white;">➕ Registrar Clase de Formación</h3>
+            <button onclick="cerrarModalRegistrarClase()" style="background: transparent; border: none; color: white; font-size: 1.5em; cursor: pointer; line-height: 1;">&times;</button>
+        </div>
+        <form id="form-registrar-clase" onsubmit="guardarClaseForm(event)" style="margin: 0; display: flex; flex-direction: column;">
+            <div class="modalBody" style="padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #fdfdfd; box-sizing: border-box;">
+                
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: bold; font-size: 0.82em; color: #4a5568;">Tipo de Formación</label>
+                    <select id="clase-tipo" required style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; background: white; color: #2d3748; outline: none; font-size: 0.9em; box-sizing: border-box; width: 100%;">
+                        <option value="Cámara">📹 Cámara (Práctico)</option>
+                        <option value="Aula">🏫 Aula (Teórico)</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: bold; font-size: 0.82em; color: #4a5568;">Tutor / Docente</label>
+                    <select id="clase-formador-select" required style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; background: white; color: #2d3748; outline: none; font-size: 0.9em; box-sizing: border-box; width: 100%;">
+                        <option value="">Cargando formadores...</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label style="font-weight: bold; font-size: 0.82em; color: #4a5568;">Fecha</label>
+                    <input type="date" id="clase-fecha" required style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; background: white; color: #2d3748; outline: none; font-size: 0.9em; box-sizing: border-box; width: 100%;">
+                </div>
+                
+                <div style="display: flex; gap: 15px;">
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                        <label style="font-weight: bold; font-size: 0.82em; color: #4a5568;">Desde (Hora Inicio)</label>
+                        <input type="time" id="clase-hora-inicio" required style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; background: white; color: #2d3748; outline: none; font-size: 0.9em; box-sizing: border-box; width: 100%;">
+                    </div>
+                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
+                        <label style="font-weight: bold; font-size: 0.82em; color: #4a5568;">Hasta (Hora Fin)</label>
+                        <input type="time" id="clase-hora-fin" required style="padding: 8px 12px; border: 1px solid #cbd5e0; border-radius: 6px; background: white; color: #2d3748; outline: none; font-size: 0.9em; box-sizing: border-box; width: 100%;">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modalFooter" style="padding: 15px 20px; background: white; border-top: 1px solid #edf2f7; display: flex; justify-content: flex-end; gap: 10px; box-sizing: border-box; width: 100%;">
+                <button type="button" onclick="cerrarModalRegistrarClase()" style="padding: 8px 16px; border: 1px solid #cbd5e0; border-radius: 6px; cursor: pointer; background: white; color: #4a5568; font-weight: 600; font-size: 0.9em;">Cancelar</button>
+                <button type="submit" style="padding: 8px 16px; background: #1a5c37; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em;">Guardar Clase</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Librería para el Gráfico Interactivo -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- Tu lógica principal forzando la actualización -->
-<script src="/static/js/expediente.js?v=39"></script>
+<script src="/static/js/expediente.js?v=45"></script>
 
 {% endblock %}

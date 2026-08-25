@@ -31,6 +31,12 @@ _cache_timestamp = 0.0
 _cache_lock = threading.Lock()
 CACHE_TTL_SEGUNDOS = 300  # 5 minutos de tiempo de vida (TTL)
 
+def invalidar_cache_dashboard():
+    global _cache_datos, _cache_timestamp
+    with _cache_lock:
+        _cache_datos = None
+        _cache_timestamp = 0.0
+
 def obtener_alertas_seguimiento_activas_safe():
     try:
         from app.services.intervenciones_service import obtener_alertas_seguimiento_activas
@@ -294,6 +300,8 @@ def normalizar_persona(p, overrides=None):
         "revision_enviada": str(p.get("REVISION_ENVIADA", "")).strip(),
         "whatsapp_anadido": str(p.get("WHATSAPP_ANADIDO", "")).strip(),
         "contrato_limitado": str(p.get("CONTRATO_LIMITADO", "") or "NO").strip().upper(),
+        "activo": str(p.get("ACTIVO", "")).strip(),
+        "finalizado": str(p.get("FINALIZADO", "")).strip(),
     }
 
     checklist = calcular_checklist(persona)
@@ -381,6 +389,13 @@ def es_persona_activa(persona):
 
 
 def es_nueva_incorporacion(persona):
+    if not persona:
+        return False
+    finalizado = str(persona.get("finalizado") or "").strip().upper()
+    activo = str(persona.get("activo") or "").strip().upper()
+    estado = str(persona.get("estado") or "").strip().upper()
+    if finalizado in ("SÍ", "SI", "TRUE") or activo == "NO" or estado in ("BAJA", "NO APTO"):
+        return False
     return "NUEVA" in normalizar_texto(persona.get("programa"))
 
 

@@ -165,7 +165,14 @@ async function cargarExpediente() {
     const btnSalix = document.getElementById("link-salix");
     
     if (btnGrafana) {
-        btnGrafana.href = `https://grafana.verdnatura.es/d/ec278d81-119f-4e08-8efe-f97efacdb211/control-rendimiento?var-workerFk=${persona.id}`;
+        let dashboardUid = "ec278d81-119f-4e08-8efe-f97efacdb211";
+        let dashboardSlug = "control-rendimiento";
+        const dept = (persona.departamento || "").toUpperCase();
+        if (dept.includes("ENCAJADO")) {
+            dashboardUid = "dc00c1f0-e799-448c-8462-29a8606a4158";
+            dashboardSlug = "rendimiento-encajadores";
+        }
+        btnGrafana.href = `https://grafana.verdnatura.es/d/${dashboardUid}/${dashboardSlug}?var-workerFk=${persona.id}`;
         btnGrafana.style.display = "inline-flex";
     }
     
@@ -1248,18 +1255,25 @@ async function inicializarFormularioObservaciones() {
 
     // Cargar formadores y jefes de equipo en los selects
     try {
-        // Cargar Formadores
-        const resFormadores = await fetch("/api/formadores");
-        const formadores = await resFormadores.json();
-        if (selectAutor && Array.isArray(formadores)) {
+        // Cargar Formadores con usuario activo
+        const resUsuarios = await fetch("/api/usuarios");
+        const usuarios = await resUsuarios.json();
+        if (selectAutor && Array.isArray(usuarios)) {
             selectAutor.innerHTML = "";
-            const nombresFormadores = [...new Set(formadores.map(f => f.nombre).filter(Boolean))].sort();
-            nombresFormadores.forEach(nombre => {
+            const usuariosActivos = usuarios.filter(u => u.activo === "Sí");
+            const nombresUsuarios = [...new Set(usuariosActivos.map(u => u.nombre).filter(Boolean))].sort();
+            nombresUsuarios.forEach(nombre => {
                 const opt = document.createElement("option");
                 opt.value = nombre;
                 opt.textContent = nombre;
-                // Si el nombre es del usuario actual (Francisco Albert), lo marcamos por defecto
-                if (nombre.toUpperCase().includes("FRANCISCO ALBERT ESCUDERO") || nombre.toUpperCase().includes("ALBERT ESCUDERO")) {
+                
+                let matchesUser = false;
+                if (window.currentUser && window.currentUser.nombre) {
+                    matchesUser = nombre.toUpperCase().trim() === window.currentUser.nombre.toUpperCase().trim();
+                } else {
+                    matchesUser = nombre.toUpperCase().includes("FRANCISCO ALBERT ESCUDERO") || nombre.toUpperCase().includes("ALBERT ESCUDERO");
+                }
+                if (matchesUser) {
                     opt.selected = true;
                 }
                 selectAutor.appendChild(opt);
@@ -2329,23 +2343,47 @@ async function inicializarIntervenciones(persona) {
     const year = d.getFullYear();
     dateInput.value = `${year}-${month}-${day}`;
     
-    // 2. Cargar Formadores
+    // 2. Cargar Formadores con usuario activo
     if (selectAutor) {
         selectAutor.innerHTML = "";
-        const formadoresPrefijados = [
-            { value: "EUGENIO COLOMER GIRBÉS", label: "Eugenio" },
-            { value: "VICENTE LLOPIS CORDOBA", label: "Vicente" },
-            { value: "FRANCISCO ALBERT ESCUDERO", label: "Kiko" }
-        ];
-        formadoresPrefijados.forEach(f => {
-            const opt = document.createElement("option");
-            opt.value = f.value;
-            opt.textContent = f.label;
-            if (f.label === "Kiko" || f.value.includes("FRANCISCO ALBERT")) {
-                opt.selected = true;
-            }
-            selectAutor.appendChild(opt);
-        });
+        try {
+            fetch("/api/usuarios")
+                .then(res => res.json())
+                .then(usuarios => {
+                    if (Array.isArray(usuarios)) {
+                        const usuariosActivos = usuarios.filter(u => u.activo === "Sí");
+                        const nombresUsuarios = [...new Set(usuariosActivos.map(u => u.nombre).filter(Boolean))].sort();
+                        nombresUsuarios.forEach(nombre => {
+                            const opt = document.createElement("option");
+                            opt.value = nombre;
+                            
+                            // Nombre abreviado para el label de intervenciones
+                            let label = nombre;
+                            if (nombre.toUpperCase().includes("FRANCISCO ALBERT")) label = "Kiko";
+                            else if (nombre.toUpperCase().includes("VICENTE LLOPIS")) label = "Vicente";
+                            else if (nombre.toUpperCase().includes("EUGENIO COLOMER")) label = "Eugenio";
+                            else {
+                                label = nombre.split(" ")[0]; // Primer nombre
+                            }
+                            
+                            opt.textContent = label;
+                            
+                            let isSelected = false;
+                            if (window.currentUser && window.currentUser.nombre) {
+                                isSelected = nombre.toUpperCase().trim() === window.currentUser.nombre.toUpperCase().trim();
+                            } else {
+                                isSelected = nombre.toUpperCase().includes("FRANCISCO ALBERT ESCUDERO") || nombre.toUpperCase().includes("ALBERT ESCUDERO");
+                            }
+                            if (isSelected) {
+                                opt.selected = true;
+                            }
+                            selectAutor.appendChild(opt);
+                        });
+                    }
+                });
+        } catch (e) {
+            console.error("Error al cargar usuarios para intervenciones:", e);
+        }
     }
     
     // 3. Listener guardar
@@ -2520,5 +2558,100 @@ window.resolverIntervencion = async function(id_intervencion, nuevoEstado) {
         }
     } catch (err) {
         alert("Error de conexión: " + err.message);
+    }
+}
+
+// REGISTRO DE CLASES DE FORMACIÓN (CÁMARA / AULA)
+window.abrirModalRegistrarClase = async function() {
+    const modal = document.getElementById("modal-registrar-clase");
+    if (!modal) return;
+    
+    // Poner fecha de hoy por defecto
+    const inputFecha = document.getElementById("clase-fecha");
+    if (inputFecha) {
+        inputFecha.value = new Date().toISOString().split('T')[0];
+    }
+    
+    // Limpiar campos de hora
+    const inputInicio = document.getElementById("clase-hora-inicio");
+    const inputFin = document.getElementById("clase-hora-fin");
+    if (inputInicio) inputInicio.value = "";
+    if (inputFin) inputFin.value = "";
+    
+    // Cargar formadores
+    const selectFormador = document.getElementById("clase-formador-select");
+    if (selectFormador) {
+        selectFormador.innerHTML = '<option value="">Cargando formadores...</option>';
+        try {
+            const res = await fetch("/api/formadores");
+            if (res.ok) {
+                const data = await res.json();
+                const list = data.formadores || [];
+                selectFormador.innerHTML = '<option value="">-- Selecciona Tutor/Docente --</option>';
+                list.forEach(f => {
+                    const opt = document.createElement("option");
+                    opt.value = f.id;
+                    opt.textContent = `${f.nombre} (${f.codigo || f.id})`;
+                    selectFormador.appendChild(opt);
+                });
+            } else {
+                selectFormador.innerHTML = '<option value="">Error al cargar formadores</option>';
+            }
+        } catch (e) {
+            console.error(e);
+            selectFormador.innerHTML = '<option value="">Error de conexión</option>';
+        }
+    }
+    
+    modal.style.display = "flex";
+}
+
+window.cerrarModalRegistrarClase = function() {
+    const modal = document.getElementById("modal-registrar-clase");
+    if (modal) modal.style.display = "none";
+}
+
+window.guardarClaseForm = async function(e) {
+    e.preventDefault();
+    
+    if (!window.currentPersona || !window.currentPersona.id) {
+        alert("Error: No hay datos del trabajador actual.");
+        return;
+    }
+    
+    const payload = {
+        alumno_id: window.currentPersona.id,
+        tipo: document.getElementById("clase-tipo").value,
+        formador_id: parseInt(document.getElementById("clase-formador-select").value),
+        fecha: document.getElementById("clase-fecha").value,
+        hora_inicio: document.getElementById("clase-hora-inicio").value,
+        hora_fin: document.getElementById("clase-hora-fin").value
+    };
+    
+    if (!payload.formador_id) {
+        alert("Debe seleccionar un formador/docente.");
+        return;
+    }
+    
+    try {
+        const res = await fetch("/api/trabajador/registrar_clase", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        if (res.ok && data.ok) {
+            window.cerrarModalRegistrarClase();
+            // Recargar sección de clases e historial
+            await cargarFormacionTrabajador(window.currentPersona);
+            // También recargar expediente completo por si cambian métricas en cabecera
+            window.location.reload();
+        } else {
+            alert("Error al registrar la clase: " + (data.error || "Error desconocido"));
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Error de conexión al registrar la clase.");
     }
 }

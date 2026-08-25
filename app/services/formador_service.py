@@ -382,3 +382,100 @@ def obtener_formacion_alumno(alumno_id):
         "horas_camara_mins": total_mins_camara,
         "horas_aula_mins": total_mins_aula
     }
+
+
+def registrar_clase_formacion(datos: dict) -> dict:
+    try:
+        from app.services.persona_service import obtener_persona, invalidar_todas_las_caches
+        
+        # 1. Obtener datos del alumno
+        alumno_id = str(datos.get("alumno_id", "")).strip()
+        alumno = obtener_persona(alumno_id)
+        if not alumno:
+            return {"ok": False, "error": f"No se encontró el alumno con ID {alumno_id}"}
+            
+        alumno_nombre = alumno.get("nombre", "")
+        alumno_departamento = alumno.get("departamento", "NO DEPT.")
+        
+        # 2. Obtener datos del formador
+        formador_id = int(datos.get("formador_id"))
+        formadores_res = obtener_formadores()
+        formadores = formadores_res.get("formadores", [])
+        formador = next((f for f in formadores if f["id"] == formador_id), None)
+        if not formador:
+            return {"ok": False, "error": f"No se encontró el formador con ID {formador_id}"}
+            
+        formador_codigo = formador.get("codigo", "")
+        formador_nombre = formador.get("nombre", "")
+        
+        # 3. Datos de la sesión
+        fecha_input = str(datos.get("fecha", "")).strip()  # YYYY-MM-DD
+        try:
+            dt = datetime.strptime(fecha_input, "%Y-%m-%d")
+            fecha_sheets = f"{dt.day}/{dt.month}/{dt.year}"
+        except Exception:
+            fecha_sheets = fecha_input
+            
+        tipo = str(datos.get("tipo", "Cámara")).strip()
+        hora_inicio = str(datos.get("hora_inicio", "")).strip()
+        hora_fin = str(datos.get("hora_fin", "")).strip()
+        
+        try:
+            h1, m1 = map(int, hora_inicio.split(":"))
+            h2, m2 = map(int, hora_fin.split(":"))
+            total_mins = (h2 * 60 + m2) - (h1 * 60 + m1)
+            if total_mins <= 0:
+                return {"ok": False, "error": "La hora de fin debe ser posterior a la hora de inicio."}
+        except Exception:
+            return {"ok": False, "error": "Formato de hora incorrecto. Use HH:MM."}
+            
+        horas = total_mins // 60
+        mins = total_mins % 60
+        
+        doc = abrir_documento_por_key(DOCUMENTO_FORMADORES)
+        
+        if tipo == "Cámara":
+            duracion_sheets = f"{horas:02d}:{mins:02d}"
+            fila = [
+                str(formador_id),
+                formador_codigo,
+                formador_nombre,
+                "",
+                fecha_sheets,
+                alumno_id,
+                duracion_sheets,
+                alumno_nombre,
+                alumno_departamento
+            ]
+            sheet = doc.worksheet("FORMACIÓN CÁMARA")
+            sheet.append_row(fila)
+        else:
+            duracion_sheets = f"{horas}:{mins:02d}:00"
+            alumno_iniciales = "".join([w[0] for w in alumno_nombre.split() if w])[:3].upper()
+            fila = [
+                str(formador_id),
+                formador_codigo,
+                formador_nombre,
+                fecha_sheets,
+                alumno_id,
+                duracion_sheets,
+                alumno_iniciales,
+                alumno_nombre,
+                alumno_departamento
+            ]
+            sheet = doc.worksheet("FORMACIÓN AULA")
+            sheet.append_row(fila)
+            
+        # Limpiar caché de formadores
+        global _cache_datos, _cache_timestamp
+        with _cache_lock:
+            _cache_datos = None
+            _cache_timestamp = None
+            
+        # Limpiar caché de personas
+        invalidar_todas_las_caches()
+        
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Error al registrar clase de formación: {e}")
+        return {"ok": False, "error": str(e)}

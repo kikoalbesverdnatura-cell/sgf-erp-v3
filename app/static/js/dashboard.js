@@ -7,8 +7,23 @@ let filtroIncorporacionesActivo = "hoy";
 let chartNotasSacadoresInstance = null;
 let alertasSeguimiento = [];
 
-document.addEventListener("DOMContentLoaded", () => {
+window.tutoresDisponibles = [];
+
+async function loadTutoresDisponibles() {
+    try {
+        const res = await fetch("/api/usuarios");
+        if (res.ok) {
+            const list = await res.json();
+            window.tutoresDisponibles = list.filter(u => u.activo === "Sí" || u.activo === "SÍ");
+        }
+    } catch (e) {
+        console.error("Error cargando tutores:", e);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
     setToday();
+    await loadTutoresDisponibles();
     loadDashboard();
 });
 
@@ -202,10 +217,34 @@ function renderPersonaChecklistCard(persona) {
             <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 0.76em;" onclick="event.stopPropagation();">
                 <span style="color: #718096; font-weight: 700;">Tutor:</span>
                 <select class="tutor-select" onchange="asignarTutorDashboard('${escapeAttr(persona.id)}', this.value)" style="padding: 1px 4px; border-radius: 4px; border: 1px solid #cbd5e0; font-size: 0.95em; color: #2d3748; background: #fff; cursor: pointer; max-width: 160px; font-weight: 500;">
-                    <option value="" ${!persona.tutor ? 'selected' : ''}>-- Sin Tutor --</option>
-                    <option value="FRANCISCO ALBERT ESCUDERO" ${persona.tutor && (persona.tutor.includes("FRANCISCO ALBERT") || persona.tutor.includes("Kiko")) ? 'selected' : ''}>Kiko</option>
-                    <option value="VICENTE LLOPIS CORDOBA" ${persona.tutor && (persona.tutor.includes("VICENTE LLOPIS") || persona.tutor.includes("Vicente")) ? 'selected' : ''}>Vicente</option>
-                    <option value="EUGENIO COLOMER GIRBÉS" ${persona.tutor && (persona.tutor.includes("EUGENIO COLOMER") || persona.tutor.includes("Eugenio")) ? 'selected' : ''}>Eugenio</option>
+                    ${(() => {
+                        let tutorOptions = `<option value="" ${!persona.tutor ? 'selected' : ''}>-- Sin Tutor --</option>`;
+                        if (window.tutoresDisponibles && window.tutoresDisponibles.length > 0) {
+                            window.tutoresDisponibles.forEach(t => {
+                                const isSelected = persona.tutor && (
+                                    persona.tutor.toUpperCase().trim() === t.nombre.toUpperCase().trim() || 
+                                    (t.nombre.includes("FRANCISCO ALBERT") && (persona.tutor.includes("FRANCISCO ALBERT") || persona.tutor.includes("Kiko"))) ||
+                                    (t.nombre.includes("VICENTE LLOPIS") && (persona.tutor.includes("VICENTE LLOPIS") || persona.tutor.includes("Vicente"))) ||
+                                    (t.nombre.includes("EUGENIO COLOMER") && (persona.tutor.includes("EUGENIO COLOMER") || persona.tutor.includes("Eugenio")))
+                                );
+                                let label = t.nombre;
+                                if (t.nombre.toUpperCase().includes("FRANCISCO ALBERT")) label = "Kiko";
+                                else if (t.nombre.toUpperCase().includes("VICENTE LLOPIS")) label = "Vicente";
+                                else if (t.nombre.toUpperCase().includes("EUGENIO COLOMER")) label = "Eugenio";
+                                else {
+                                    label = t.nombre.split(" ")[0]; // Primer nombre
+                                }
+                                tutorOptions += `<option value="${escapeAttr(t.nombre)}" ${isSelected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+                            });
+                        } else {
+                            tutorOptions += `
+                                <option value="FRANCISCO ALBERT ESCUDERO" ${persona.tutor && (persona.tutor.includes("FRANCISCO ALBERT") || persona.tutor.includes("Kiko")) ? 'selected' : ''}>Kiko</option>
+                                <option value="VICENTE LLOPIS CORDOBA" ${persona.tutor && (persona.tutor.includes("VICENTE LLOPIS") || persona.tutor.includes("Vicente")) ? 'selected' : ''}>Vicente</option>
+                                <option value="EUGENIO COLOMER GIRBÉS" ${persona.tutor && (persona.tutor.includes("EUGENIO COLOMER") || persona.tutor.includes("Eugenio")) ? 'selected' : ''}>Eugenio</option>
+                            `;
+                        }
+                        return tutorOptions;
+                    })()}
                 </select>
             </div>
 
@@ -293,7 +332,7 @@ async function toggleDashboardCheck(id, campo, checked) {
             body: JSON.stringify({
                 id: id,
                 campo: campo,
-                value: checked
+                valor: checked
             })
         });
         const data = await res.json();

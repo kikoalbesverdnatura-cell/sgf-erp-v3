@@ -38,12 +38,15 @@ async function cargarPersonas() {
     }
 }
 
-function poblarSelectorHeader(selectId, campo, labelTodos) {
+function poblarSelectorHeader(selectId, campo, labelTodos, listaTrabajadores) {
     const select = document.getElementById(selectId);
     if (!select) return;
 
+    const sourceList = listaTrabajadores || todosLosTrabajadores;
+    const prevVal = select.value;
+
     // Obtener valores únicos y ordenados
-    const valoresUnicos = [...new Set(todosLosTrabajadores.map(p => (p[campo] || "").trim()))]
+    const valoresUnicos = [...new Set(sourceList.map(p => (p[campo] || "").trim()))]
         .filter(v => v !== "")
         .sort();
 
@@ -58,6 +61,13 @@ function poblarSelectorHeader(selectId, campo, labelTodos) {
         opt.textContent = displayVal;
         select.appendChild(opt);
     });
+
+    if (valoresUnicos.includes(prevVal)) {
+        select.value = prevVal;
+    } else {
+        select.value = "";
+        filtros[campo] = "";
+    }
 }
 
 function esFormacionHecha(val) {
@@ -76,75 +86,71 @@ function renderizarTabla() {
     const mostrarTodoHistorial = checkHistorial && checkHistorial.checked;
     
     document.querySelectorAll("#tablaPersonas th .header-filter").forEach(el => {
-        el.disabled = mostrarTodoHistorial;
-        el.style.opacity = mostrarTodoHistorial ? "0.5" : "1";
-        el.style.cursor = mostrarTodoHistorial ? "not-allowed" : "default";
+        el.disabled = false;
+        el.style.opacity = "1";
+        el.style.cursor = "default";
     });
 
     // 1. Filtrar
-    let trabajadoresFiltrados;
-    if (mostrarTodoHistorial) {
-        trabajadoresFiltrados = [...(trabajadoresHistorial || todosLosTrabajadores)];
-    } else {
-        trabajadoresFiltrados = todosLosTrabajadores.filter(persona => {
-            const idStr = String(persona.id || "").toLowerCase();
-            const nombreStr = String(persona.nombre || "").toLowerCase();
-            const deptStr = String(persona.departamento || "").toLowerCase();
-            const estadoStr = String(persona.estado || "").toLowerCase();
-            const riesgoStr = String(persona.riesgo || "").toLowerCase();
-            const diasStr = String(persona.dias || "").toLowerCase();
-            
-            // Chaleco filtering
-            const chalecoStr = (persona.chaleco || "").trim().toUpperCase();
-            const esChaleco = chalecoStr === "SÍ" || chalecoStr === "SI";
-            const filtroChaleco = filtros.chaleco.toUpperCase();
-            let matchesChaleco = true;
-            if (filtroChaleco === "SÍ") {
-                matchesChaleco = esChaleco;
-            } else if (filtroChaleco === "NO") {
-                matchesChaleco = !esChaleco;
-            }
+    const baseTrabajadores = mostrarTodoHistorial ? (trabajadoresHistorial || todosLosTrabajadores) : todosLosTrabajadores;
+    let trabajadoresFiltrados = baseTrabajadores.filter(persona => {
+        const idStr = String(persona.id || "").toLowerCase();
+        const nombreStr = String(persona.nombre || "").toLowerCase();
+        const deptStr = String(persona.departamento || "").toLowerCase();
+        const estadoStr = String(persona.estado || "").toLowerCase();
+        const riesgoStr = String(persona.riesgo || "").toLowerCase();
+        const diasStr = String(persona.dias || "").toLowerCase();
+        
+        // Chaleco filtering
+        const chalecoStr = String(persona.chaleco || "").trim().toUpperCase();
+        const esChaleco = chalecoStr === "SÍ" || chalecoStr === "SI";
+        const filtroChaleco = filtros.chaleco.toUpperCase();
+        let matchesChaleco = true;
+        if (filtroChaleco === "SÍ") {
+            matchesChaleco = esChaleco;
+        } else if (filtroChaleco === "NO") {
+            matchesChaleco = !esChaleco;
+        }
 
-            // Rendimiento filtering
-            const rendStr = `${persona.productividad_ultimo_dia || ""} ${persona.productividad_media || ""}`.toLowerCase();
-            const matchesRendimiento = rendStr.includes(filtros.rendimiento.toLowerCase());
+        // Rendimiento filtering
+        const rendStr = `${persona.productividad_ultimo_dia || ""} ${persona.productividad_media || ""}`.toLowerCase();
+        const matchesRendimiento = rendStr.includes(filtros.rendimiento.toLowerCase());
 
-            // Formación filtering
-            const aulaStr = String(persona.formacion_aula || "0:00").toLowerCase();
-            const camaraStr = String(persona.formacion_camara || "0:00").toLowerCase();
-            const matchesAula = aulaStr.includes(filtros.formacion_aula.toLowerCase());
-            const matchesCamara = camaraStr.includes(filtros.formacion_camara.toLowerCase());
+        // Formación filtering
+        const aulaStr = String(persona.formacion_aula || "0:00").toLowerCase();
+        const camaraStr = String(persona.formacion_camara || "0:00").toLowerCase();
+        const matchesAula = aulaStr.includes(filtros.formacion_aula.toLowerCase());
+        const matchesCamara = camaraStr.includes(filtros.formacion_camara.toLowerCase());
 
-            // Errores filtering
-            const errStr = String(persona.error_ultimo_dia || "0").toLowerCase();
-            const matchesErrores = errStr.includes(filtros.errores.toLowerCase());
+        // Errores filtering
+        const errStr = String(persona.error_ultimo_dia || "0").toLowerCase();
+        const matchesErrores = errStr.includes(filtros.errores.toLowerCase());
 
-            // Salida filtering
-            const esBajaSalix = String(persona.finalizado || "").trim().toUpperCase() === "SÍ" || String(persona.finalizado || "").trim().toUpperCase() === "SI";
-            const esTerminado = ["terminado", "finalizado", "no apto", "baja"].includes(estadoStr.trim());
-            const haSalido = esBajaSalix || esTerminado;
-            
-            let matchesSalida = true;
-            if (filtros.salida === "NO") {
-                matchesSalida = !haSalido;
-            } else if (filtros.salida === "SI") {
-                matchesSalida = haSalido;
-            }
+        // Salida filtering
+        const esBajaSalix = String(persona.finalizado || "").trim().toUpperCase() === "SÍ" || String(persona.finalizado || "").trim().toUpperCase() === "SI";
+        const esBajaEstado = ["no apto", "baja"].includes(estadoStr.trim());
+        const haSalido = esBajaSalix || esBajaEstado;
+        
+        let matchesSalida = true;
+        if (filtros.salida === "NO") {
+            matchesSalida = !haSalido;
+        } else if (filtros.salida === "SI") {
+            matchesSalida = haSalido;
+        }
 
-            return idStr.includes(filtros.id.toLowerCase()) &&
-                   nombreStr.includes(filtros.nombre.toLowerCase()) &&
-                   (filtros.departamento === "" || deptStr === filtros.departamento.toLowerCase()) &&
-                   (filtros.estado === "" || estadoStr === filtros.estado.toLowerCase()) &&
-                   (filtros.riesgo === "" || riesgoStr === filtros.riesgo.toLowerCase()) &&
-                   diasStr.includes(filtros.dias.toLowerCase()) &&
-                   matchesChaleco &&
-                   matchesRendimiento &&
-                   matchesAula &&
-                   matchesCamara &&
-                   matchesErrores &&
-                   matchesSalida;
-        });
-    }
+        return idStr.includes(filtros.id.toLowerCase()) &&
+               nombreStr.includes(filtros.nombre.toLowerCase()) &&
+               (filtros.departamento === "" || deptStr === filtros.departamento.toLowerCase()) &&
+               (filtros.estado === "" || estadoStr === filtros.estado.toLowerCase()) &&
+               (filtros.riesgo === "" || riesgoStr === filtros.riesgo.toLowerCase()) &&
+               diasStr.includes(filtros.dias.toLowerCase()) &&
+               matchesChaleco &&
+               matchesRendimiento &&
+               matchesAula &&
+               matchesCamara &&
+               matchesErrores &&
+               matchesSalida;
+    });
 
     // 2. Ordenar
     if (direccionOrdenacion !== "none") {
@@ -347,21 +353,45 @@ function activarListenersHeader() {
     const checkHistorial = document.getElementById("check-todo-historial");
     if (checkHistorial) {
         checkHistorial.addEventListener("change", async () => {
-            if (checkHistorial.checked && !trabajadoresHistorial) {
-                try {
-                    const tbody = document.querySelector("#tablaPersonas tbody");
-                    if (tbody) {
-                        tbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 30px; color: #666; font-weight: bold;">Cargando historial completo...</td></tr>`;
+            const selectSalida = document.getElementById("filtro-salida");
+            if (checkHistorial.checked) {
+                if (selectSalida) {
+                    selectSalida.value = "";
+                    filtros.salida = "";
+                }
+                if (!trabajadoresHistorial) {
+                    try {
+                        const tbody = document.querySelector("#tablaPersonas tbody");
+                        if (tbody) {
+                            tbody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 30px; color: #666; font-weight: bold;">Cargando historial completo...</td></tr>`;
+                        }
+                        const respuesta = await fetch("/api/personas?historial=true");
+                        trabajadoresHistorial = await respuesta.json();
+                    } catch (e) {
+                        console.error("Error al cargar historial completo:", e);
+                        alert("Error al cargar el historial completo de personas.");
+                        checkHistorial.checked = false;
+                        if (selectSalida) {
+                            selectSalida.value = "NO";
+                            filtros.salida = "NO";
+                        }
+                        return;
                     }
-                    const respuesta = await fetch("/api/personas?historial=true");
-                    trabajadoresHistorial = await respuesta.json();
-                } catch (e) {
-                    console.error("Error al cargar historial completo:", e);
-                    alert("Error al cargar el historial completo de personas.");
-                    checkHistorial.checked = false;
-                    return;
+                }
+            } else {
+                if (selectSalida) {
+                    selectSalida.value = "NO";
+                    filtros.salida = "NO";
                 }
             }
+            
+            // Repoblar selectores con la lista correspondiente
+            const list = checkHistorial.checked ? (trabajadoresHistorial || todosLosTrabajadores) : todosLosTrabajadores;
+            poblarSelectorHeader("filtro-departamento", "departamento", "🏢 Dept...", list);
+            poblarSelectorHeader("filtro-estado", "estado", "📋 Estado...", list);
+            poblarSelectorHeader("filtro-contrato", "contrato_limitado", "📜 Contrato...", list);
+            poblarSelectorHeader("filtro-riesgo", "riesgo", "⚠️ Riesgo...", list);
+            
             renderizarTabla();
         });
     }

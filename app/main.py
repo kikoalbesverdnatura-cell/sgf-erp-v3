@@ -903,6 +903,18 @@ async def api_registrar_formacion(datos: dict = Body(...)):
     return {"ok": True}
 
 
+@app.post("/api/trabajador/registrar_clase")
+async def api_registrar_clase(datos: dict = Body(...)):
+    try:
+        from app.services.formador_service import registrar_clase_formacion
+        res = registrar_clase_formacion(datos)
+        if not res.get("ok"):
+            return JSONResponse(res, status_code=400)
+        return res
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 @app.get("/api/whatsapp/config")
 async def api_get_whatsapp_config():
     import json
@@ -1090,7 +1102,14 @@ async def api_asignar_tutor(datos: dict = Body(...)):
     if not id_novato or tutor is None:
         return JSONResponse({"ok": False, "error": "Faltan datos para la asignación"})
         
-    resultado = asignar_tutor(id_novato, tutor)
+    resultado = asignar_tutor(
+        id_novato,
+        tutor,
+        rrhh=datos.get("rrhh"),
+        uniforme=datos.get("uniforme"),
+        almuerzo=datos.get("almuerzo"),
+        tour=datos.get("tour")
+    )
     return JSONResponse(resultado)
 
 
@@ -1323,6 +1342,11 @@ async def api_get_jefes_equipo():
             nombre = str(r.get("Nombre completo", "")).strip()
             if "JEFE" in puesto and nombre:
                 jefes.add(nombre)
+        
+        # Agregar jefes adicionales
+        jefes.add("Daniel Zapata")
+        jefes.add("Andres Caballero (Piri)")
+        
         return JSONResponse(sorted(list(jefes)))
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
