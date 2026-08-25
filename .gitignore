@@ -1,4 +1,4 @@
-﻿# Virtual environment
+# Virtual environment
 .venv/
 venv/
 ENV/
@@ -24,3 +24,4 @@ cloudflared.exe
 scratch/
 tmp_checkbox_test.py
 *.log
+app/credentials/google.json
