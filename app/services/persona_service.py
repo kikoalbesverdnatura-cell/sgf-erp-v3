@@ -598,7 +598,10 @@ def obtener_personas(excluir_equipo=False, filtrar_dias=True):
         for p in personas:
             id_val = str(p.get("ID_Trabajador", "")).strip()
             nombre_val = str(p.get("NOMBRE_COMPLETO", "")).strip()
+            activo_val = str(p.get("ACTIVO", "")).strip().upper()
             if not id_val or id_val.startswith("#") or not nombre_val:
+                continue
+            if activo_val == "NO":
                 continue
             personas_normal.append({
                 "id": id_val,
