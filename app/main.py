@@ -148,7 +148,7 @@ async def login_page(request: Request):
     usuario = obtener_usuario_logueado(request)
     if usuario:
         from fastapi.responses import RedirectResponse
-        if usuario["usuario"].lower().strip() == "norman":
+        if usuario["usuario"].lower().strip() in ("norman", "daniel"):
             return RedirectResponse(url="/personas")
         return RedirectResponse(url="/")
     return templates.TemplateResponse(
@@ -197,7 +197,7 @@ async def dashboard(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -243,7 +243,7 @@ async def formadores(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -259,7 +259,7 @@ async def formador_detalle(request: Request, id: str):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -275,7 +275,7 @@ async def operaciones(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -291,7 +291,7 @@ async def planificacion(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -307,7 +307,7 @@ async def analitica(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -323,7 +323,7 @@ async def formacion(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -339,7 +339,7 @@ async def calendario_mili(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -355,7 +355,7 @@ async def administracion(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -371,7 +371,7 @@ async def administracion_usuarios(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
-    if usuario["usuario"].lower().strip() == "norman":
+    if usuario["usuario"].lower().strip() in ("norman", "daniel"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
@@ -773,7 +773,7 @@ async def api_persona_historial_sacador(id: str, request: Request):
 @app.get("/api/formadores")
 async def api_formadores(request: Request):
     usuario = obtener_usuario_logueado(request)
-    if usuario and usuario["usuario"].lower().strip() == "norman":
+    if usuario and usuario["usuario"].lower().strip() in ("norman", "daniel"):
         return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     from app.services.formador_service import obtener_formadores
     try:
@@ -786,7 +786,7 @@ async def api_formadores(request: Request):
 @app.get("/api/formador/{id}/detalle")
 async def api_formador_detalle(id: str, request: Request):
     usuario = obtener_usuario_logueado(request)
-    if usuario and usuario["usuario"].lower().strip() == "norman":
+    if usuario and usuario["usuario"].lower().strip() in ("norman", "daniel"):
         return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     from app.services.formador_service import obtener_detalle_formador
     try:
