@@ -11,6 +11,10 @@ _grafana_perf_cache = None
 _grafana_perf_timestamp = 0.0
 _grafana_perf_lock = threading.Lock()
 
+_grafana_perf_diario_cache = None
+_grafana_perf_diario_timestamp = 0.0
+_grafana_perf_diario_lock = threading.Lock()
+
 # Caché global en memoria para los datos de Google Sheets de personas
 _personas_cache = None
 _personas_cache_timestamp = 0.0
@@ -173,14 +177,20 @@ def guardar_override_async(id_trabajador, campo, valor):
     threading.Thread(target=task, daemon=True).start()
     return True
 
-def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False):
+def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_actual=False):
     global _grafana_perf_cache, _grafana_perf_timestamp
+    global _grafana_perf_diario_cache, _grafana_perf_diario_timestamp
     
     ahora = time.time()
     if not forzar_refresco:
-        with _grafana_perf_lock:
-            if _grafana_perf_cache is not None and (ahora - _grafana_perf_timestamp) < 300: # 5 minutos
-                return _grafana_perf_cache
+        if dia_actual:
+            with _grafana_perf_diario_lock:
+                if _grafana_perf_diario_cache is not None and (ahora - _grafana_perf_diario_timestamp) < 60: # 1 minuto para hoy
+                    return _grafana_perf_diario_cache
+        else:
+            with _grafana_perf_lock:
+                if _grafana_perf_cache is not None and (ahora - _grafana_perf_timestamp) < 300: # 5 minutos
+                    return _grafana_perf_cache
 
     resultado = {}
     if not active_ids:
@@ -384,6 +394,11 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False):
         GROUP BY userFk
         """
 
+        if dia_actual:
+            sql = sql.replace("DATE_SUB(NOW(), INTERVAL 14 DAY)", "CURRENT_DATE()")
+            sql_hv = sql_hv.replace("DATE_SUB(NOW(), INTERVAL 14 DAY)", "CURRENT_DATE()")
+            sql_encajadores = sql_encajadores.replace("DATE_SUB(NOW(), INTERVAL 14 DAY)", "CURRENT_DATE()")
+
         payload = [
             {
                 "refId": "A",
@@ -469,9 +484,14 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False):
     except Exception as e:
         print(f"Error querying Grafana batch: {e}")
 
-    with _grafana_perf_lock:
-        _grafana_perf_cache = resultado
-        _grafana_perf_timestamp = ahora
+    if dia_actual:
+        with _grafana_perf_diario_lock:
+            _grafana_perf_diario_cache = resultado
+            _grafana_perf_diario_timestamp = ahora
+    else:
+        with _grafana_perf_lock:
+            _grafana_perf_cache = resultado
+            _grafana_perf_timestamp = ahora
     return resultado
 
 
@@ -576,11 +596,11 @@ def calcular_color_semaforo(persona, pct_val, err_val, total_lineas):
         return "AMARILLO"
 
 
-def obtener_personas(excluir_equipo=False, filtrar_dias=True):
+def obtener_personas(excluir_equipo=False, filtrar_dias=True, diario=False):
     global _mapped_personas_cache, _mapped_personas_timestamp
     ahora = time.time()
     
-    cache_key = (excluir_equipo, filtrar_dias)
+    cache_key = (excluir_equipo, filtrar_dias, diario)
     with _mapped_personas_lock:
         if (cache_key in _mapped_personas_cache) and (ahora - _mapped_personas_timestamp) < MAPPED_PERSONAS_CACHE_TTL:
             return _mapped_personas_cache[cache_key]
@@ -627,7 +647,7 @@ def obtener_personas(excluir_equipo=False, filtrar_dias=True):
     # 2. Obtener datos de rendimiento por lote desde Grafana (tiempo real)
     grafana_perf = {}
     if active_ids:
-        grafana_perf = obtener_rendimiento_grafana_batch(active_ids)
+        grafana_perf = obtener_rendimiento_grafana_batch(active_ids, dia_actual=diario)
  
     # 3. Obtener datos de rendimiento del excel de Formadores (secondary fallback)
     global _formadores_perf_cache, _formadores_perf_timestamp

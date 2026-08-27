@@ -2552,49 +2552,122 @@ async function abrirModalFase(fase) {
 }
 
 
+let chartNotasSacadoresInstance = null;
+
 async function renderNotasSacadoresChart() {
-    const iframe = document.getElementById("grafanaIframe");
-    if (!iframe) return;
+    const canvas = document.getElementById("chartNotasSacadores");
+    const noDataMsg = document.getElementById("chart-no-data-msg");
+    if (!canvas) return;
     
     try {
-        const res = await fetch("/api/personas");
+        const res = await fetch("/api/personas?diario=true");
         const personas = await res.json();
         
-        // Filtrar personas en formación activas (sacadores y taller natural)
+        // Filtrar personas con nota válida en departamentos de sacadores o taller natural
         const sacadores = personas.filter(p => {
             const depto = String(p.departamento || "").toUpperCase().trim();
-            return (depto.includes("SACADO") || depto.includes("TALLER NATURAL"));
+            return (depto.includes("SACADO") || depto.includes("TALLER NATURAL")) && p.nota !== undefined && p.nota !== null && p.nota > 0;
         });
         
-        // Construir URL base
-        let grafanaUrl = "https://grafana.verdnatura.es/d/b8972cdc-2450-4742-8e7c-a9e8f124fd65/formacion-rendimiento-sacadores"
-            + "?orgId=1"
-            + "&kiosk=tv" // Modo kiosco limpio
-            + "&from=now/d" // Inicio del día actual
-            + "&to=now/d" // Fin del día actual
-            + "&timezone=Europe%2FMadrid"
-            + "&var-itemPackingTypeFk=%24__all"
-            + "&var-minLinesPerHour=80"
-            + "&var-minHoursAction=2"
-            + "&var-manualLinesSecondsPenality=240";
-            
-        if (sacadores.length > 0) {
-            sacadores.forEach(p => {
-                const w_id = String(p.id).trim();
-                if (w_id && w_id.match(/^\d+$/)) {
-                    grafanaUrl += `&var-workerFk=${w_id}`;
-                }
-            });
-        } else {
-            grafanaUrl += "&var-workerFk=null";
+        // Ordenar de mayor a menor nota
+        sacadores.sort((a, b) => b.nota - a.nota);
+        
+        if (sacadores.length === 0) {
+            canvas.style.display = "none";
+            if (noDataMsg) noDataMsg.style.display = "block";
+            return;
         }
         
-        iframe.src = grafanaUrl;
+        canvas.style.display = "block";
+        if (noDataMsg) noDataMsg.style.display = "none";
         
+        const labels = sacadores.map(p => p.nombre.split(" ").slice(0, 2).join(" ")); // Solo primer nombre y apellido
+        const dataValues = sacadores.map(p => parseFloat(p.nota.toFixed(2)));
+        
+        // Generar colores basados en la nota
+        const backgroundColors = sacadores.map(p => {
+            const n = p.nota;
+            if (n >= 7.0) return "rgba(39, 174, 96, 0.75)"; // Verde
+            if (n >= 5.0) return "rgba(214, 161, 0, 0.75)"; // Amarillo / Ámbar
+            return "rgba(229, 62, 62, 0.75)"; // Rojo
+        });
+        
+        const borderColors = sacadores.map(p => {
+            const n = p.nota;
+            if (n >= 7.0) return "#27ae60";
+            if (n >= 5.0) return "#d6a100";
+            return "#e53e3e";
+        });
+        
+        if (chartNotasSacadoresInstance) {
+            chartNotasSacadoresInstance.destroy();
+        }
+        
+        const ctx = canvas.getContext("2d");
+        chartNotasSacadoresInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Nota de Sacador (0 - 10)',
+                    data: dataValues,
+                    backgroundColor: backgroundColors,
+                    borderColor: borderColors,
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Nota: ${context.parsed.y} / 10`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        min: 0,
+                        max: 10,
+                        ticks: {
+                            stepSize: 1,
+                            font: {
+                                weight: 'bold'
+                            }
+                        },
+                        grid: {
+                            color: "rgba(0, 0, 0, 0.05)"
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 10,
+                                weight: 'bold'
+                            }
+                        }
+                    }
+                }
+            }
+        });
     } catch (err) {
-        console.error("Error al cargar trabajadores para el gráfico de Grafana:", err);
-        // Carga la URL por defecto en caso de fallo
-        iframe.src = "https://grafana.verdnatura.es/d/b8972cdc-2450-4742-8e7c-a9e8f124fd65/formacion-rendimiento-sacadores?orgId=1&kiosk=tv&from=now/d&to=now/d&timezone=Europe%2FMadrid&var-itemPackingTypeFk=$__all&var-minLinesPerHour=80&var-workerFk=null&var-minHoursAction=2&var-manualLinesSecondsPenality=240";
+        console.error("Error al renderizar gráfico de notas de sacadores:", err);
+        if (noDataMsg) {
+            noDataMsg.textContent = "Error al cargar datos del gráfico.";
+            noDataMsg.style.display = "block";
+        }
+        if (canvas) canvas.style.display = "none";
     }
 }
 

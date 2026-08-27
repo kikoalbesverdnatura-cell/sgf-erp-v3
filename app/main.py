@@ -733,9 +733,9 @@ async def api_dashboard_pro_stats():
 
 
 @app.get("/api/personas")
-async def api_personas(request: Request, historial: bool = False):
+async def api_personas(request: Request, historial: bool = False, diario: bool = False):
     usuario = obtener_usuario_logueado(request)
-    personas_res = obtener_personas(excluir_equipo=False, filtrar_dias=not historial)
+    personas_res = obtener_personas(excluir_equipo=False, filtrar_dias=not historial, diario=diario)
     
     if usuario and usuario["usuario"].lower().strip() == "norman":
         filtradas = []
