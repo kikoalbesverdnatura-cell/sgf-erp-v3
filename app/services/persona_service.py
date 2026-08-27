@@ -2164,14 +2164,54 @@ def obtener_horas_formacion_por_trabajador():
     try:
         from app.services.google_service import abrir_documento_por_key
         doc = abrir_documento_por_key(SPREADSHEET_SACADORES_ID)
+        
+        # 1. Leer datos de SIMPL (contiene la lista histórica de trabajadores)
         try:
-            hoja = doc.worksheet("Formación")
-            filas = hoja.get_all_records()
-        except Exception:
-            return {}
+            hoja_simpl = doc.worksheet("SIMPL")
+            filas_simpl = hoja_simpl.get_all_records()
+        except Exception as e:
+            logger.warning(f"No se pudo cargar la hoja SIMPL para horas de formación: {e}")
+            filas_simpl = []
             
-        horas = {}
-        for f in filas:
+        # 2. Leer datos de Formación (Log de nuevas clases de la app)
+        try:
+            hoja_form = doc.worksheet("Formación")
+            filas_form = hoja_form.get_all_records()
+        except Exception as e:
+            logger.warning(f"No se pudo cargar la hoja Formación para horas de formación: {e}")
+            filas_form = []
+            
+        horas_simpl = {}
+        for f in filas_simpl:
+            w_id = str(f.get("ID", "")).strip()
+            if not w_id:
+                continue
+                
+            # Cámara (Col 10 / "Cámara")
+            camara_val = str(f.get("Cámara", "")).strip().upper()
+            camara_mins = 0
+            if camara_val and camara_val not in ("PENDIENTE", "NO", "FALSE", ""):
+                try:
+                    if ":" in camara_val:
+                        parts = camara_val.split(":")
+                        camara_mins = int(parts[0]) * 60 + int(parts[1])
+                    else:
+                        camara_mins = int(float(camara_val) * 60)
+                except Exception:
+                    # Fallback si pone "Completado" u otro texto no numérico
+                    camara_mins = 60
+                    
+            # Aula (S.0, S.1, S.2) -> 60 mins cada una si están marcadas como completadas
+            aula_mins = 0
+            for col in ["Aula S. 0", "Aula S. 1", "Aula S. 2"]:
+                val = str(f.get(col, "")).strip().upper()
+                if val in ("TRUE", "SÍ", "SI", "1", "OK", "HECHO", "COMPLETADO"):
+                    aula_mins += 60
+                    
+            horas_simpl[w_id] = {"aula": aula_mins, "camara": camara_mins}
+            
+        horas_form = {}
+        for f in filas_form:
             w_id = str(f.get("ID_Trabajador", "")).strip()
             if not w_id:
                 continue
@@ -2189,19 +2229,27 @@ def obtener_horas_formacion_por_trabajador():
             except Exception:
                 pass
                 
-            if w_id not in horas:
-                horas[w_id] = {"camara": 0, "aula": 0}
+            if w_id not in horas_form:
+                horas_form[w_id] = {"aula": 0, "camara": 0}
                 
             if "CÁMARA" in tipo or "CAMARA" in tipo:
-                horas[w_id]["camara"] += mins
+                horas_form[w_id]["camara"] += mins
             else:
-                horas[w_id]["aula"] += mins
+                horas_form[w_id]["aula"] += mins
                 
+        # Combinar usando el valor máximo para evitar duplicaciones
         res = {}
-        for w_id, data in horas.items():
+        all_ids = set(horas_simpl.keys()) | set(horas_form.keys())
+        for w_id in all_ids:
+            s_data = horas_simpl.get(w_id, {"aula": 0, "camara": 0})
+            f_data = horas_form.get(w_id, {"aula": 0, "camara": 0})
+            
+            a_m = max(s_data["aula"], f_data["aula"])
+            c_m = max(s_data["camara"], f_data["camara"])
+            
             res[w_id] = {
-                "camara": f"{data['camara'] // 60}:{data['camara'] % 60:02d}",
-                "aula": f"{data['aula'] // 60}:{data['aula'] % 60:02d}"
+                "aula": f"{a_m // 60}:{a_m % 60:02d}",
+                "camara": f"{c_m // 60}:{c_m % 60:02d}"
             }
         return res
     except Exception as e:

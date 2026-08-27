@@ -25,3 +25,4 @@ scratch/
 tmp_checkbox_test.py
 *.log
 app/credentials/google.json
+app/static/img/cached_workers/

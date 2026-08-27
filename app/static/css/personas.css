@@ -31,18 +31,18 @@
 
 /* Chaleco Morado row styling */
 .fila-persona.chaleco-morado {
-    background-color: #f5f3ff !important;
+    background-color: #e0dbff !important;
 }
 .fila-persona.chaleco-morado:hover {
-    background-color: #ede9fe !important;
+    background-color: #d2cbff !important;
 }
 
 /* Chaleco + Riesgo Alto (gradient) row styling */
 .fila-persona.chaleco-riesgo-alto {
-    background-image: linear-gradient(90deg, #f5f3ff 0%, #ffebee 100%) !important;
+    background-image: linear-gradient(90deg, #e0dbff 0%, #ffebee 100%) !important;
 }
 .fila-persona.chaleco-riesgo-alto:hover {
-    background-image: linear-gradient(90deg, #ede9fe 0%, #ffcdd2 100%) !important;
+    background-image: linear-gradient(90deg, #d2cbff 0%, #ffcdd2 100%) !important;
 }
 
 /* =====================================================

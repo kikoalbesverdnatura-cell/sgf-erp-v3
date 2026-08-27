@@ -270,8 +270,8 @@ function renderizarTabla() {
             <td>
                 <img src="/api/trabajador/${persona.id}/foto" class="tabla-avatar" onerror="this.src='/static/img/avatar.png'">
             </td>
-            <td style="text-align: center;">
-                <input type="checkbox" disabled ${esChaleco ? 'checked' : ''} style="transform: scale(1.25); cursor: default;">
+            <td style="text-align: center;" class="celda-chaleco-editable">
+                <input type="checkbox" class="check-chaleco" data-id="${persona.id}" ${esChaleco ? 'checked' : ''} style="transform: scale(1.25); cursor: pointer;">
             </td>
             <td>${persona.nombre}</td>
             <td>${persona.departamento || "-"}</td>
@@ -446,9 +446,89 @@ function activarClicks() {
         fila.parentNode.replaceChild(nuevaFila, fila);
         
         nuevaFila.addEventListener("click", function (e) {
-            if (e.target.closest(".header-filter") || e.target.closest(".celda-riesgo-editable")) return;
+            if (
+                e.target.closest(".header-filter") || 
+                e.target.closest(".celda-riesgo-editable") || 
+                e.target.closest(".celda-chaleco-editable") || 
+                e.target.closest(".check-chaleco")
+            ) return;
             const id = this.dataset.id;
             window.open("/expediente/" + id, "_blank");
+        });
+    });
+
+    // 1.5. Clic/Cambio en el checkbox de Chaleco
+    document.querySelectorAll(".check-chaleco").forEach(check => {
+        check.addEventListener("click", function(e) {
+            e.stopPropagation(); // Evitar click en la fila
+        });
+        check.addEventListener("change", async function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            const checked = this.checked;
+            const valor = checked ? "SÍ" : "NO";
+            
+            // Efecto visual inmediato (Optimistic UI)
+            const fila = this.closest(".fila-persona");
+            const esRiesgoAlto = fila.classList.contains("riesgo-alto") || fila.classList.contains("chaleco-riesgo-alto");
+            
+            if (checked) {
+                fila.classList.remove("riesgo-alto");
+                if (esRiesgoAlto) {
+                    fila.classList.add("chaleco-riesgo-alto");
+                } else {
+                    fila.classList.add("chaleco-morado");
+                }
+            } else {
+                fila.classList.remove("chaleco-morado");
+                if (esRiesgoAlto) {
+                    fila.classList.remove("chaleco-riesgo-alto");
+                    fila.classList.add("riesgo-alto");
+                }
+            }
+            
+            try {
+                const res = await fetch("/api/persona/actualizar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: id, campo: "chaleco", valor: valor })
+                });
+                const data = await res.json();
+                if (!data || !data.ok) {
+                    alert("Error al actualizar chaleco: " + (data.error || "Error desconocido"));
+                    // Revertir
+                    this.checked = !checked;
+                    if (this.checked) {
+                        fila.classList.remove("riesgo-alto");
+                        if (esRiesgoAlto) fila.classList.add("chaleco-riesgo-alto");
+                        else fila.classList.add("chaleco-morado");
+                    } else {
+                        fila.classList.remove("chaleco-morado", "chaleco-riesgo-alto");
+                        if (esRiesgoAlto) fila.classList.add("riesgo-alto");
+                    }
+                } else {
+                    // Actualizar en memoria local
+                    const pLocal = todosLosTrabajadores.find(p => String(p.id) === String(id));
+                    if (pLocal) pLocal.chaleco = valor;
+                    if (trabajadoresHistorial) {
+                        const pHisto = trabajadoresHistorial.find(p => String(p.id) === String(id));
+                        if (pHisto) pHisto.chaleco = valor;
+                    }
+                }
+            } catch (err) {
+                console.error("Error al actualizar chaleco:", err);
+                alert("Error de conexión al guardar el chaleco.");
+                // Revertir
+                this.checked = !checked;
+                if (this.checked) {
+                    fila.classList.remove("riesgo-alto");
+                    if (esRiesgoAlto) fila.classList.add("chaleco-riesgo-alto");
+                    else fila.classList.add("chaleco-morado");
+                } else {
+                    fila.classList.remove("chaleco-morado", "chaleco-riesgo-alto");
+                    if (esRiesgoAlto) fila.classList.add("riesgo-alto");
+                }
+            }
         });
     });
 

@@ -407,15 +407,21 @@ SELECT *
         mistakes_map = {}
         for m in mistake_records:
             raw_fecha = m.get("fecha")
-            if raw_fecha:
-                if "T" in str(raw_fecha):
-                    raw_fecha = str(raw_fecha).split("T")[0]
+            if raw_fecha is not None and raw_fecha != "":
                 try:
-                    dt = datetime.strptime(str(raw_fecha).strip(), "%Y-%m-%d")
+                    # Si es un timestamp numérico (milisegundos) o string numérico
+                    if str(raw_fecha).isdigit() or isinstance(raw_fecha, (int, float)):
+                        dt = datetime.fromtimestamp(float(raw_fecha) / 1000.0)
+                    else:
+                        date_str = str(raw_fecha).strip()
+                        if "T" in date_str:
+                            date_str = date_str.split("T")[0]
+                        dt = datetime.strptime(date_str, "%Y-%m-%d")
+                    
                     fecha_key = dt.strftime("%d/%m/%Y")
                     mistakes_map[fecha_key] = m
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Error parsing raw_fecha {raw_fecha}: {e}")
 
         # Generar histórico unificado
         unified_history = []

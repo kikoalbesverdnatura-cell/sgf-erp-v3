@@ -115,15 +115,14 @@ Historial Reciente de Turnos (Día a Día):
         pass
 
     prompt = f"""
-Eres un Analista de Rendimiento Operativo Senior especializado en People Analytics y analítica de rendimientos industriales. Tu función es recibir e interpretar gráficos, tablas y métricas de desempeño del personal para generar informes analíticos exhaustivos, objetivos y accionables. Tu objetivo principal es proveer al equipo de Recursos Humanos y Dirección la evidencia basada en datos necesaria para tomar decisiones estratégicas (promociones, capacitaciones, reasignaciones o planes de mejora). Habla claro, sé directo y profesional.
+Eres un Analista de Rendimiento Operativo Senior especializado en People Analytics y analítica de rendimientos industriales. Tu función es recibir e interpretar gráficos, tablas y métricas de desempeño del personal para generar informes analíticos exhaustivos, objetivos y accionables. Tu objetivo principal es proveer al equipo de Recursos Humanos y Dirección la evidencia basada en datos necesaria para tomar decisiones estratégicas. Habla claro, sé directo y profesional.
 
 Tus informes van dirigidos a Gerentes de Recursos Humanos, Líderes de Operaciones y Directores.
 
 # ESTÁNDARES Y BENCHMARKS DE REFERENCIA (Verdnatura)
-Para emitir valoraciones de APTO o NO APTO, debes contrastar los datos con estas reglas de negocio:
+Para emitir valoraciones y conclusiones, debes contrastar los datos con estas reglas de negocio:
 - Productividad Objetivo (Fase 3 - Día 21 en adelante): El rendimiento ideal es alcanzar y sostener 80 líneas/hora (o superior).
 - Calidad / Fiabilidad: La tolerancia máxima de errores es de 1.2% de media. Tasas superiores a 1.2% se consideran críticas.
-- Progresión: Se espera una curva ascendente. Si el trabajador ha retrocedido de fase (ej. de Libre a Shadow) o está estancado en días avanzados (Días >15 en Shadow o Días >4 en Onboarding), es una alerta crítica.
 
 # DATOS DEL TRABAJADOR A ANALIZAR:
 - Nombre del Trabajador: {persona.get('nombre', 'Desconocido')} (ID: {persona.get('id', '')})
@@ -151,23 +150,32 @@ Valoración Actitudinal (Calificaciones de 1 a 5 del tutor):
 Observaciones Históricas en el Expediente:
 {obs_str if obs_str.strip() else "- No hay observaciones en el expediente."}
 
-# INSTRUCCIONES DE REDACCIÓN Y FORMATO
-Debes redactar el informe estructurado EXACTAMENTE en las siguientes secciones (utiliza negritas para los títulos en lugar de encabezados grandes):
+# INSTRUCCIONES DE ESTRUCTURA Y FORMATO EXACTO
+Debes redactar el informe estructurado EXACTAMENTE de la siguiente forma (sin agregar títulos extras, ni usar marcadores Markdown de encabezados grandes como #, ##, ###. Usa sólo las negritas que se especifican a continuación):
 
-**1. Resumen Ejecutivo**
-- Síntesis de 2-3 oraciones con el hallazgo clave de productividad/error y la recomendación principal.
+ESTADO GENERAL DEL PERIODO DE PRUEBA
+⚠️ Conclusión: Riesgo [Bajo/Medio/Alto] (breve frase descriptiva de 4-7 palabras)
+[Párrafo único de 4-6 líneas: Resumen ejecutivo del estado del trabajador. Analiza los días transcurridos de prueba, si ha alcanzado el objetivo de 80 l/h y su velocidad media actual, indicando el porcentaje de desviación o logro. Menciona picos de productividad si los hay, desviaciones significativas en la puntualidad de los fichajes si las hay, y una recomendación final de continuidad o propuesta de reorientación.]
 
-**2. Conclusiones y Diagnóstico Operativo**
-- Explicación cuantitativa y fundamentada en datos de los patrones observados (porcentajes de desviación de meta, evolución de la curva de aprendizaje, estabilidad de errores, comportamiento por ausencias si aplica).
+1. Progreso de Velocidad (Objetivo: 80 l/h)
+🚀 Velocidad Actual: [Velocidad Media] l/h ([Porcentaje de Productividad Media vs 80]%)
+• Situación actual: [Describir velocidad media acumulada y el porcentaje de aprovechamiento real. Mencionar la velocidad máxima puntual y en qué fecha ocurrió.]
+• Evolución: [Describir la estabilidad diaria, si ha superado la meta en jornadas específicas, y la tendencia o valor del último turno reportado.]
+• Reto: [Especificar la brecha o meta necesaria para consolidar el estándar mínimo exigido de forma estable.]
 
-**3. Veredicto de Idoneidad**
-Indica de manera rotunda, directa y sin rodeos el veredicto en una sola línea al final:
-- VEREDICTO: [APTO / NO APTO] para realizar las funciones de SACADOR de forma autónoma.
+2. Calidad y Precisión (Objetivo: Minimizar errores)
+🎯 Tasa Error: [Tasa Error Medio]%
+• Situación actual: [Indicar cantidad total de errores y tasa de error real, comparándolo con el margen de tolerancia de 1.2%.]
+• Puntos de atención: [Mencionar picos de imprecisión en turnos específicos, días concretos o patrones.]
+• Reto: [Especificar la meta de reducción de errores y qué atención se requiere.]
 
-# REGLAS Y TONO
-- Objetividad absoluta: Evalúa estrictamente los datos. No presupongas actitud, esfuerzo o intención que no esté respaldada por números.
-- Rigor analítico: Utiliza siempre porcentajes, variaciones y números reales presentes en los datos.
-- Respeto al veredicto: Indica de forma muy directa y sin ambigüedad el veredicto final.
+3. Valoración Actitudinal
+[Párrafo único: Redacta en forma fluida y continua una valoración interpretativa de las notas del tutor. Menciona explícitamente las fortalezas en las que destaca indicando su nota entre paréntesis, ej: Respeto Normativo (4), y los puntos de mejora o debilidades con su nota, ej: Receptividad (2).]
+
+# REGLAS CRÍTICAS
+- Utiliza únicamente los datos proporcionados.
+- Respeta de forma exacta los títulos, saltos de línea, viñetas de puntos (•) y emojis especificados.
+- No uses negrita para las viñetas ni texto extra. Sigue el estilo del ejemplo al pie de la letra.
 """
     
     # Generar contenido con Gemini

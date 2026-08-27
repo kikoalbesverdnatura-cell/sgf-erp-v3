@@ -1805,16 +1805,41 @@ function formatearResumenAnalitico(text, persona) {
             return;
         }
         
-        // Encabezados principales
+        // Determinar si es un encabezado principal
+        let isHeader = false;
+        let headerText = trimmed;
+        
         if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
-            let headerText = trimmed.replace(/\*\*/g, "").trim();
+            headerText = trimmed.replace(/\*\*/g, "").trim();
+            isHeader = true;
+        } else {
+            let lower = trimmed.toLowerCase();
+            if (
+                lower.includes("estado general del periodo de prueba") ||
+                lower.startsWith("estado general") ||
+                lower.includes("conclusión:") || 
+                lower.includes("conclusion:") || 
+                lower.includes("conclusión ") || 
+                lower.includes("conclusion ") || 
+                lower.startsWith("⚠️ conclusión") || 
+                lower.startsWith("⚠️ conclusion") ||
+                lower.startsWith("1. ") || 
+                lower.startsWith("2. ") || 
+                lower.startsWith("3. ")
+            ) {
+                isHeader = true;
+            }
+        }
+
+        if (isHeader) {
             let lower = headerText.toLowerCase();
             
             if (lower.includes("estado general")) {
                 generalStateHeader = headerText;
                 currentSection = "general";
             } else if (lower.includes("conclusión") || lower.includes("conclusion")) {
-                conclusionHeader = headerText;
+                // Limpiar emojis iniciales para evitar duplicados en el HTML
+                conclusionHeader = headerText.replace(/^[⚠️\s]+/, "").trim();
                 currentSection = "conclusion";
             } else if (lower.includes("1.") || lower.includes("velocidad")) {
                 speedHeader = headerText;
