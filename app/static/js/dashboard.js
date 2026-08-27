@@ -2552,8 +2552,6 @@ async function abrirModalFase(fase) {
 }
 
 
-let chartNotasSacadoresInstance = null;
-
 async function renderNotasSacadoresChart() {
     const canvas = document.getElementById("chartNotasSacadores");
     const noDataMsg = document.getElementById("chart-no-data-msg");
