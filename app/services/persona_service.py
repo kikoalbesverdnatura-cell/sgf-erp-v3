@@ -2282,6 +2282,8 @@ def sincronizar_bajas_salix(forzar_refresco=False):
             logger.info("Iniciando revisión diaria de bajas en Salix...")
             
             filas = obtener_filas_maestro_personas(forzar_refresco=True)
+            from datetime import date, datetime
+            hoy = date.today()
             active_workers = []
             
             for f in filas:
@@ -2291,6 +2293,23 @@ def sincronizar_bajas_salix(forzar_refresco=False):
                 finalizado_val = str(f.get("FINALIZADO", "")).strip().upper()
                 
                 if not id_val or id_val.startswith("#") or not nombre_val:
+                    continue
+                    
+                # Ignorar si es incorporación futura o de hoy (para evitar falsas bajas si no han empezado en Salix)
+                fecha_inc_str = str(f.get("FECHA_INCORPORACION", "")).strip()
+                es_futura = False
+                if fecha_inc_str:
+                    for formato in ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"]:
+                        try:
+                            fecha_inc = datetime.strptime(fecha_inc_str, formato).date()
+                            if fecha_inc >= hoy:
+                                es_futura = True
+                            break
+                        except Exception:
+                            pass
+                            
+                if es_futura:
+                    logger.info(f"Sincronizador Salix: omitiendo trabajador {id_val} ({nombre_val}) porque empieza hoy o en el futuro: {fecha_inc_str}")
                     continue
                     
                 # Nos interesan personas que no estén expresamente dadas de baja en el ERP
