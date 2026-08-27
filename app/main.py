@@ -122,11 +122,34 @@ def obtener_usuario_logueado(request: Request):
     return None
 
 
+def validar_acceso_trabajador(request: Request, id_trabajador: str) -> bool:
+    """
+    Verifica si el usuario logueado tiene permiso para acceder a los datos de un trabajador.
+    Retorna True si tiene permiso, False en caso contrario.
+    """
+    usuario = obtener_usuario_logueado(request)
+    if not usuario:
+        return False
+    if usuario["usuario"].lower().strip() == "norman":
+        from app.services.persona_service import obtener_persona
+        persona = obtener_persona(id_trabajador)
+        if persona:
+            dept = str(persona.get("departamento") or "").strip().upper()
+            if not (dept.startswith("SACADO H") or dept.startswith("SACADO H-")):
+                return False
+        else:
+            return False
+    return True
+
+
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     usuario = obtener_usuario_logueado(request)
     if usuario:
         from fastapi.responses import RedirectResponse
+        if usuario["usuario"].lower().strip() == "norman":
+            return RedirectResponse(url="/personas")
         return RedirectResponse(url="/")
     return templates.TemplateResponse(
         request=request,
@@ -174,6 +197,9 @@ async def dashboard(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -200,6 +226,10 @@ async def expediente(request: Request, id: str):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        if not validar_acceso_trabajador(request, id):
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="expediente.html",
@@ -213,6 +243,9 @@ async def formadores(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="formadores.html",
@@ -222,10 +255,17 @@ async def formadores(request: Request):
 
 @app.get("/formador/{id}", response_class=HTMLResponse)
 async def formador_detalle(request: Request, id: str):
+    usuario = obtener_usuario_logueado(request)
+    if not usuario:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="formador_detalle.html",
-        context={"request": request, "id": id}
+        context={"request": request, "id": id, "usuario": usuario}
     )
 
 
@@ -235,6 +275,9 @@ async def operaciones(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="operaciones.html",
@@ -248,6 +291,9 @@ async def planificacion(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="formacion_sacadores.html",
@@ -261,6 +307,9 @@ async def analitica(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="analitica.html",
@@ -274,6 +323,9 @@ async def formacion(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="formacion.html",
@@ -287,6 +339,9 @@ async def calendario_mili(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="calendario_mili.html",
@@ -300,6 +355,9 @@ async def administracion(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="administracion.html",
@@ -313,6 +371,9 @@ async def administracion_usuarios(request: Request):
     if not usuario:
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/login")
+    if usuario["usuario"].lower().strip() == "norman":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/personas")
     return templates.TemplateResponse(
         request=request,
         name="usuarios.html",
@@ -672,12 +733,25 @@ async def api_dashboard_pro_stats():
 
 
 @app.get("/api/personas")
-async def api_personas(historial: bool = False):
-    return JSONResponse(obtener_personas(excluir_equipo=False, filtrar_dias=not historial))
+async def api_personas(request: Request, historial: bool = False):
+    usuario = obtener_usuario_logueado(request)
+    personas_res = obtener_personas(excluir_equipo=False, filtrar_dias=not historial)
+    
+    if usuario and usuario["usuario"].lower().strip() == "norman":
+        filtradas = []
+        for p in personas_res:
+            dept = str(p.get("departamento") or "").strip().upper()
+            if dept.startswith("SACADO H") or dept.startswith("SACADO H-"):
+                filtradas.append(p)
+        return JSONResponse(filtradas)
+        
+    return JSONResponse(personas_res)
 
 
 @app.get("/api/persona/{id}")
-async def api_persona(id: str):
+async def api_persona(id: str, request: Request):
+    if not validar_acceso_trabajador(request, id):
+        return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     persona = obtener_persona(id)
     if not persona or "error" in persona:
         return JSONResponse(persona, status_code=404)
@@ -685,7 +759,9 @@ async def api_persona(id: str):
 
 
 @app.get("/api/persona/{id}/historial-sacador")
-async def api_persona_historial_sacador(id: str):
+async def api_persona_historial_sacador(id: str, request: Request):
+    if not validar_acceso_trabajador(request, id):
+        return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     try:
         from app.services.persona_service import obtener_historial_sacador
         resultado = obtener_historial_sacador(id)
@@ -695,7 +771,10 @@ async def api_persona_historial_sacador(id: str):
 
 
 @app.get("/api/formadores")
-async def api_formadores():
+async def api_formadores(request: Request):
+    usuario = obtener_usuario_logueado(request)
+    if usuario and usuario["usuario"].lower().strip() == "norman":
+        return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     from app.services.formador_service import obtener_formadores
     try:
         res = obtener_formadores()
@@ -705,7 +784,10 @@ async def api_formadores():
 
 
 @app.get("/api/formador/{id}/detalle")
-async def api_formador_detalle(id: str):
+async def api_formador_detalle(id: str, request: Request):
+    usuario = obtener_usuario_logueado(request)
+    if usuario and usuario["usuario"].lower().strip() == "norman":
+        return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     from app.services.formador_service import obtener_detalle_formador
     try:
         res = obtener_detalle_formador(id)
@@ -717,7 +799,9 @@ async def api_formador_detalle(id: str):
 
 
 @app.get("/api/trabajador/{id}/formacion")
-async def api_trabajador_formacion(id: str):
+async def api_trabajador_formacion(id: str, request: Request):
+    if not validar_acceso_trabajador(request, id):
+        return JSONResponse({"error": "Acceso denegado"}, status_code=403)
     from app.services.formador_service import obtener_formacion_alumno
     try:
         res = obtener_formacion_alumno(id)
@@ -727,13 +811,17 @@ async def api_trabajador_formacion(id: str):
 
 
 @app.post("/api/persona/checklist")
-async def api_guardar_checklist(datos: dict = Body(...)):
+async def api_guardar_checklist(request: Request, datos: dict = Body(...)):
+    if not validar_acceso_trabajador(request, datos.get("id")):
+        return JSONResponse({"ok": False, "error": "Acceso denegado"}, status_code=403)
     resultado = guardar_checklist_persona(datos)
     return JSONResponse(resultado)
 
 
 @app.post("/api/persona/actualizar")
-async def api_actualizar_campo(datos: dict = Body(...)):
+async def api_actualizar_campo(request: Request, datos: dict = Body(...)):
+    if not validar_acceso_trabajador(request, datos.get("id")):
+        return JSONResponse({"ok": False, "error": "Acceso denegado"}, status_code=403)
     resultado = actualizar_campo_persona(datos)
     return JSONResponse(resultado)
 
