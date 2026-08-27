@@ -2377,4 +2377,60 @@ def sincronizar_bajas_salix(forzar_refresco=False):
             
         except Exception as e:
             logger.error(f"Error durante la sincronización de bajas de Salix: {e}")
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": str(e)}
+
+
+def obtener_ultimas_observaciones_globales(limit=15):
+    """
+    Obtiene las últimas observaciones registradas globalmente en el sistema para todos los trabajadores.
+    """
+    try:
+        documento = abrir_documento(DOCUMENTO)
+        hoja = documento.worksheet("OBSERVACIONES")
+        
+        datos = hoja.get_all_values()
+        if not datos or len(datos) <= 1:
+            return []
+            
+        headers = [str(h).strip() for h in datos[0]]
+        registros = [dict(zip(headers, row)) for row in datos[1:]]
+        
+        # Mapear ID de trabajador a Nombre Completo
+        try:
+            from app.services.persona_service import obtener_filas_maestro_personas
+            filas_personas = obtener_filas_maestro_personas()
+            nombres_map = {
+                str(p.get("ID_Trabajador", "")).strip().split('.')[0]: str(p.get("NOMBRE_COMPLETO", "")).strip() 
+                for p in filas_personas if p.get("ID_Trabajador")
+            }
+        except Exception:
+            nombres_map = {}
+            
+        def limpiar_id(val):
+            return str(val).strip().split('.')[0]
+            
+        observaciones = []
+        for r in registros:
+            id_persona = limpiar_id(r.get("ID_PERSONA", ""))
+            comentario = r.get("COMENTARIO", "").strip()
+            if not comentario or not id_persona:
+                continue
+                
+            observaciones.append({
+                "id_observacion": r.get("ID_OBSERVACION", ""),
+                "id_persona": id_persona,
+                "nombre_persona": nombres_map.get(id_persona, f"Empleado {id_persona}"),
+                "tipo": r.get("TIPO", "General"),
+                "fecha_registro": r.get("FECHA_REGISTRO", ""),
+                "autor_id": r.get("AUTOR_ID", ""),
+                "comentario": comentario,
+                "creado_por": r.get("CREADO_POR", ""),
+                "fecha_creacion": r.get("FECHA_CREACION", "")
+            })
+            
+        # Ordenar por más recientes (las últimas filas en Sheets son las más recientes)
+        observaciones.reverse()
+        return observaciones[:limit]
+    except Exception as e:
+        logger.error(f"Error obteniendo observaciones globales para dashboard: {e}")
+        return []
