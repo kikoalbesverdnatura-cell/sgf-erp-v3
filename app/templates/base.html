@@ -39,11 +39,11 @@
         {% endif %}
 
         <nav>
-            {% if not (usuario and usuario.usuario.lower().strip() in ('norman', 'daniel')) %}
+            {% if not (usuario and usuario.usuario.lower().strip() in ('norman', 'daniel', 'dodo')) %}
             <a href="/">🏠 Dashboard</a>
             {% endif %}
             <a href="/personas">👥 Empleados</a>
-            {% if not (usuario and usuario.usuario.lower().strip() in ('norman', 'daniel')) %}
+            {% if not (usuario and usuario.usuario.lower().strip() in ('norman', 'daniel', 'dodo')) %}
             <a href="/planificacion">🗓️ Planificación</a>
             <a href="/formacion">📚 Documentación</a>
             <a href="/formadores">🎓 Formadores</a>
