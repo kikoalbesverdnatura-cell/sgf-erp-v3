@@ -2757,3 +2757,86 @@ function renderAlertasTallerNatural(alerts) {
 }
 
 
+function toggleRendimientoView(viewType) {
+    const localView = document.getElementById("rendimiento-view-local");
+    const grafanaView = document.getElementById("rendimiento-view-grafana");
+    const btnLocal = document.getElementById("btn-rendimiento-local");
+    const btnGrafana = document.getElementById("btn-rendimiento-grafana");
+    
+    if (viewType === 'local') {
+        if (localView) localView.style.display = "flex";
+        if (grafanaView) grafanaView.style.display = "none";
+        
+        if (btnLocal) {
+            btnLocal.style.background = "#e8f5ee";
+            btnLocal.style.color = "#173D2D";
+        }
+        if (btnGrafana) {
+            btnGrafana.style.background = "#ebf8ff";
+            btnGrafana.style.color = "#2b6cb0";
+        }
+    } else {
+        if (localView) localView.style.display = "none";
+        if (grafanaView) grafanaView.style.display = "block";
+        
+        if (btnLocal) {
+            btnLocal.style.background = "#ebf8ff";
+            btnLocal.style.color = "#2b6cb0";
+        }
+        if (btnGrafana) {
+            btnGrafana.style.background = "#e8f5ee";
+            btnGrafana.style.color = "#173D2D";
+        }
+        
+        renderGrafanaIframe();
+    }
+}
+
+
+async function renderGrafanaIframe() {
+    const iframe = document.getElementById("grafanaIframe");
+    if (!iframe) return;
+
+    try {
+        const res = await fetch("/api/personas");
+        const personas = await res.json();
+
+        // Filtrar personas en formación activas (sacadores y taller natural)
+        const sacadores = personas.filter(p => {
+            const depto = String(p.departamento || "").toUpperCase().trim();
+            return (depto.includes("SACADO") || depto.includes("TALLER NATURAL"));
+        });
+
+        // Construir URL base
+        let grafanaUrl = "https://grafana.verdnatura.es/d/admyckv1axddse/rendimiento-sacadores"
+            + "?orgId=1"
+            + "&kiosk=tv" // Modo kiosco limpio
+            + "&from=now-7d"
+            + "&to=now"
+            + "&timezone=Europe%2FMadrid"
+            + "&var-minLinesPerHour=80"
+            + "&var-minHoursAction=2"
+            + "&var-itemPackingTypeFk=H"
+            + "&var-itemPackingTypeFk=C"
+            + "&var-itemPackingTypeFk=V";
+
+        if (sacadores.length > 0) {
+            sacadores.forEach(p => {
+                const w_id = String(p.id).trim();
+                if (w_id && w_id.match(/^\d+$/)) {
+                    grafanaUrl += `&var-workerFk=${w_id}`;
+                }
+            });
+        } else {
+            grafanaUrl += "&var-workerFk=null";
+        }
+
+        iframe.src = grafanaUrl;
+    } catch (err) {
+        console.error("Error al cargar trabajadores para el gráfico de Grafana:", err);
+        iframe.src = "https://grafana.verdnatura.es/d/admyckv1axddse/rendimiento-sacadores?from=now-7d&to=now&var-minLinesPerHour=80&var-minHoursAction=2&var-itemPackingTypeFk=H&var-itemPackingTypeFk=C&var-itemPackingTypeFk=V&var-workerFk=null&timezone=Europe%2FMadrid";
+    }
+}
+
+
+
