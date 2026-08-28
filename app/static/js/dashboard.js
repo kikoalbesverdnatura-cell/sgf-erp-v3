@@ -7,6 +7,20 @@ let filtroIncorporacionesActivo = "hoy";
 let chartNotasSacadoresInstance = null;
 let alertasSeguimiento = [];
 
+const escapeHtml = (val) => String(val || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const escapeAttr = (val) => String(val || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
 window.tutoresDisponibles = [];
 
 async function loadTutoresDisponibles() {
@@ -2151,12 +2165,7 @@ function renderCombinedAlerts() {
         return;
     }
     
-    const escapeHtml = (val) => String(val || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+
 
     // Agrupar alertas por categorías
     const catQuality = todasLasAlertas.filter(a => a.type === "quality" || a.type === "performance");
