@@ -63,7 +63,7 @@ def obtener_dashboard(forzar_refresco=False):
     except Exception:
         pass
 
-    from app.services.persona_service import obtener_filas_maestro_personas, obtener_filas_simpl, auto_agregar_incorporacion_simpl, obtener_overrides, obtener_ultimas_observaciones_globales
+    from app.services.persona_service import obtener_filas_maestro_personas, obtener_filas_simpl, auto_agregar_incorporacion_simpl, obtener_overrides, obtener_ultimas_observaciones_globales, obtener_timeline_usuarios_restringidos
     filas = obtener_filas_maestro_personas()
     overrides = obtener_overrides()
 
@@ -195,6 +195,7 @@ def obtener_dashboard(forzar_refresco=False):
         "alertas": obtener_alertas(personas),
         "productividad": obtener_productividad_resumen(personas),
         "timeline": obtener_ultimas_observaciones_globales(limit=15),
+        "timelineRestringidos": obtener_timeline_usuarios_restringidos(limit=15),
         "formadores": obtener_formadores(personas),
         "retrasos": obtener_retrasos_trabajadores(personas),
         "erroresConsecutivos": obtener_errores_consecutivos(personas),

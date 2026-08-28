@@ -2472,4 +2472,66 @@ def obtener_ultimas_observaciones_globales(limit=15):
         return observaciones[:limit]
     except Exception as e:
         logger.error(f"Error obteniendo observaciones globales para dashboard: {e}")
-        return []
+        return []
+
+
+def obtener_timeline_usuarios_restringidos(limit=15):
+    """
+    Obtiene las últimas observaciones registradas por Daniel, Norman o Dodo.
+    """
+    try:
+        documento = abrir_documento(DOCUMENTO)
+        hoja = documento.worksheet("OBSERVACIONES")
+        
+        datos = hoja.get_all_values()
+        if not datos or len(datos) <= 1:
+            return []
+            
+        headers = [str(h).strip() for h in datos[0]]
+        registros = [dict(zip(headers, row)) for row in datos[1:]]
+        
+        try:
+            from app.services.persona_service import obtener_filas_maestro_personas
+            filas_personas = obtener_filas_maestro_personas()
+            nombres_map = {
+                str(p.get("ID_Trabajador", "")).strip().split('.')[0]: str(p.get("NOMBRE_COMPLETO", "")).strip() 
+                for p in filas_personas if p.get("ID_Trabajador")
+            }
+        except Exception:
+            nombres_map = {}
+            
+        def limpiar_id(val):
+            return str(val).strip().split('.')[0]
+            
+        observaciones = []
+        for r in registros:
+            autor = str(r.get("AUTOR_ID", "")).strip().lower()
+            creador = str(r.get("CREADO_POR", "")).strip().lower()
+            
+            # Filtrar por daniel, norman, dodo
+            if autor not in ("daniel", "norman", "dodo") and creador not in ("daniel", "norman", "dodo"):
+                continue
+                
+            id_persona = limpiar_id(r.get("ID_PERSONA", ""))
+            comentario = r.get("COMENTARIO", "").strip()
+            if not comentario or not id_persona:
+                continue
+                
+            observaciones.append({
+                "id_observacion": r.get("ID_OBSERVACION", ""),
+                "id_persona": id_persona,
+                "nombre_persona": nombres_map.get(id_persona, f"Empleado {id_persona}"),
+                "tipo": r.get("TIPO", "General"),
+                "fecha_registro": r.get("FECHA_REGISTRO", ""),
+                "autor_id": r.get("AUTOR_ID", ""),
+                "comentario": comentario,
+                "creado_por": r.get("CREADO_POR", ""),
+                "fecha_creacion": r.get("FECHA_CREACION", "")
+            })
+            
+        observaciones.reverse()
+        return observaciones[:limit]
+    except Exception as e:
+        logger.error(f"Error obteniendo timeline de usuarios restringidos: {e}")
+        return []
+

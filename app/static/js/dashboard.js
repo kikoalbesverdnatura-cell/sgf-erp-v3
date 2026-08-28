@@ -77,6 +77,9 @@ function renderDashboard(data) {
     loadTrainingStats();
     renderNotasSacadoresChart();
     renderAlertasTallerNatural(data.alertasTallerNatural || []);
+    if (document.getElementById("panelObservacionesRestringidos")) {
+        renderObservacionesRestringidos(data.timelineRestringidos || []);
+    }
 }
 
 
@@ -2792,6 +2795,57 @@ function toggleRendimientoView(viewType) {
         renderNotasSacadoresChart(false);
     }
 }
+
+
+function renderObservacionesRestringidos(items) {
+    const panel = document.getElementById("panelObservacionesRestringidos");
+    if (!panel) return;
+
+    if (!items || !items.length) {
+        panel.innerHTML = `<p class="empty">Sin anotaciones recientes de Daniel, Norman o Dodo.</p>`;
+        return;
+    }
+
+    const html = items.map(item => {
+        let badgeColor = "#718096"; // gris
+        let badgeBg = "#edf2f7";
+        const tipo = String(item.tipo || "General").trim();
+        const lowerTipo = tipo.toLowerCase();
+        
+        if (lowerTipo.includes("riesgo") || lowerTipo.includes("alerta") || lowerTipo.includes("error") || lowerTipo.includes("atención") || lowerTipo.includes("atencion")) {
+            badgeColor = "#e53e3e"; // rojo
+            badgeBg = "#fff5f5";
+        } else if (lowerTipo.includes("progresión") || lowerTipo.includes("progresion") || lowerTipo.includes("mejora") || lowerTipo.includes("ok")) {
+            badgeColor = "#3182ce"; // azul
+            badgeBg = "#ebf8ff";
+        } else if (lowerTipo.includes("felicitación") || lowerTipo.includes("felicitacion") || lowerTipo.includes("buena") || lowerTipo.includes("excelente")) {
+            badgeColor = "#38a169"; // verde
+            badgeBg = "#f0fff4";
+        }
+
+        const autor = item.autor_id ? `por ${escapeHtml(item.autor_id)}` : "";
+        const fecha = escapeHtml(item.fecha_registro || "");
+        
+        return `
+            <div class="listItem clickable" onclick="abrirExpediente('${escapeAttr(item.id_persona)}')" style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-bottom: 1px solid #edf2f7; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em;">
+                    <strong style="color: #2b6cb0; font-weight: 700; text-transform: uppercase;">${escapeHtml(item.nombre_persona)}</strong>
+                    <span style="color: #a0aec0; font-size: 0.9em;">${fecha}</span>
+                </div>
+                <div style="font-size: 0.9em; color: #2d3748; line-height: 1.4; text-align: justify; word-break: break-word;">
+                    ${escapeHtml(item.comentario)}
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.76em; color: #718096; margin-top: 2px;">
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; font-size: 0.90em; letter-spacing: 0.5px;">${escapeHtml(tipo)}</span>
+                    <span style="font-weight: bold; color: #2d3748; font-style: italic; background: #ebf8ff; padding: 2px 8px; border-radius: 6px;">✍️ ${escapeHtml(item.autor_id || 'Desconocido')}</span>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    panel.innerHTML = html;
+}
+
 
 
 

@@ -113,6 +113,19 @@
         </div>
     </section>
 
+    {% if usuario and usuario.rol == 'Administrador' %}
+    <section class="dashboardGrid" style="margin-top: 20px; grid-template-columns: 1fr;">
+        <div class="panel panelLarge" style="width: 100%;">
+            <h2>📝 Anotaciones de Formadores Restringidos (Daniel, Norman, Dodo)</h2>
+            <div id="panelObservacionesRestringidos" class="listPanel" style="max-height: 320px; overflow-y: auto;">
+                <div style="text-align: center; color: #718096; padding: 20px;">
+                    Cargando anotaciones de formadores...
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     <!-- MAIN TWO-COLUMN SPLIT CONTAINER (VISTA DE CONTROL DE MANDOS) -->
     <div class="dashboard-split-container" style="margin-top: 15px;">
 
@@ -503,6 +516,6 @@
 
 </div>
 
-<script src="/static/js/dashboard.js?v=39"></script>
+<script src="/static/js/dashboard.js?v=40"></script>
 
 {% endblock %}
