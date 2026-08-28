@@ -2553,13 +2553,13 @@ async function abrirModalFase(fase) {
 }
 
 
-async function renderNotasSacadoresChart() {
+async function renderNotasSacadoresChart(diario = true) {
     const canvas = document.getElementById("chartNotasSacadores");
     const noDataMsg = document.getElementById("chart-no-data-msg");
     if (!canvas) return;
     
     try {
-        const res = await fetch("/api/personas?diario=true");
+        const res = await fetch(`/api/personas?diario=${diario}`);
         const personas = await res.json();
         
         // Filtrar personas con nota válida en departamentos de sacadores o taller natural
@@ -2573,7 +2573,12 @@ async function renderNotasSacadoresChart() {
         
         if (sacadores.length === 0) {
             canvas.style.display = "none";
-            if (noDataMsg) noDataMsg.style.display = "block";
+            if (noDataMsg) {
+                noDataMsg.textContent = diario 
+                    ? "No hay datos de notas de sacadores activos en formación hoy." 
+                    : "No hay datos de notas de sacadores activos en formación en los últimos 14 días.";
+                noDataMsg.style.display = "block";
+            }
             return;
         }
         
@@ -2758,85 +2763,36 @@ function renderAlertasTallerNatural(alerts) {
 
 
 function toggleRendimientoView(viewType) {
-    const localView = document.getElementById("rendimiento-view-local");
-    const grafanaView = document.getElementById("rendimiento-view-grafana");
-    const btnLocal = document.getElementById("btn-rendimiento-local");
-    const btnGrafana = document.getElementById("btn-rendimiento-grafana");
+    const btnHoy = document.getElementById("btn-rendimiento-hoy");
+    const btnHistorico = document.getElementById("btn-rendimiento-historico");
     
-    if (viewType === 'local') {
-        if (localView) localView.style.display = "flex";
-        if (grafanaView) grafanaView.style.display = "none";
+    if (viewType === 'hoy') {
+        if (btnHoy) {
+            btnHoy.style.background = "#e8f5ee";
+            btnHoy.style.color = "#173D2D";
+        }
+        if (btnHistorico) {
+            btnHistorico.style.background = "#ebf8ff";
+            btnHistorico.style.color = "#2b6cb0";
+        }
         
-        if (btnLocal) {
-            btnLocal.style.background = "#e8f5ee";
-            btnLocal.style.color = "#173D2D";
-        }
-        if (btnGrafana) {
-            btnGrafana.style.background = "#ebf8ff";
-            btnGrafana.style.color = "#2b6cb0";
-        }
+        // Cargar gráfico local de hoy
+        renderNotasSacadoresChart(true);
     } else {
-        if (localView) localView.style.display = "none";
-        if (grafanaView) grafanaView.style.display = "block";
-        
-        if (btnLocal) {
-            btnLocal.style.background = "#ebf8ff";
-            btnLocal.style.color = "#2b6cb0";
+        if (btnHoy) {
+            btnHoy.style.background = "#ebf8ff";
+            btnHoy.style.color = "#2b6cb0";
         }
-        if (btnGrafana) {
-            btnGrafana.style.background = "#e8f5ee";
-            btnGrafana.style.color = "#173D2D";
+        if (btnHistorico) {
+            btnHistorico.style.background = "#e8f5ee";
+            btnHistorico.style.color = "#173D2D";
         }
         
-        renderGrafanaIframe();
+        // Cargar gráfico local histórico (14 días)
+        renderNotasSacadoresChart(false);
     }
 }
 
-
-async function renderGrafanaIframe() {
-    const iframe = document.getElementById("grafanaIframe");
-    if (!iframe) return;
-
-    try {
-        const res = await fetch("/api/personas");
-        const personas = await res.json();
-
-        // Filtrar personas en formación activas (sacadores y taller natural)
-        const sacadores = personas.filter(p => {
-            const depto = String(p.departamento || "").toUpperCase().trim();
-            return (depto.includes("SACADO") || depto.includes("TALLER NATURAL"));
-        });
-
-        // Construir URL base
-        let grafanaUrl = "https://grafana.verdnatura.es/d/admyckv1axddse/rendimiento-sacadores"
-            + "?orgId=1"
-            + "&kiosk=tv" // Modo kiosco limpio
-            + "&from=now-7d"
-            + "&to=now"
-            + "&timezone=Europe%2FMadrid"
-            + "&var-minLinesPerHour=80"
-            + "&var-minHoursAction=2"
-            + "&var-itemPackingTypeFk=H"
-            + "&var-itemPackingTypeFk=C"
-            + "&var-itemPackingTypeFk=V";
-
-        if (sacadores.length > 0) {
-            sacadores.forEach(p => {
-                const w_id = String(p.id).trim();
-                if (w_id && w_id.match(/^\d+$/)) {
-                    grafanaUrl += `&var-workerFk=${w_id}`;
-                }
-            });
-        } else {
-            grafanaUrl += "&var-workerFk=null";
-        }
-
-        iframe.src = grafanaUrl;
-    } catch (err) {
-        console.error("Error al cargar trabajadores para el gráfico de Grafana:", err);
-        iframe.src = "https://grafana.verdnatura.es/d/admyckv1axddse/rendimiento-sacadores?from=now-7d&to=now&var-minLinesPerHour=80&var-minHoursAction=2&var-itemPackingTypeFk=H&var-itemPackingTypeFk=C&var-itemPackingTypeFk=V&var-workerFk=null&timezone=Europe%2FMadrid";
-    }
-}
 
 
 
