@@ -76,6 +76,7 @@ function renderDashboard(data) {
     loadOvertimeAlerts();
     loadTrainingStats();
     renderNotasSacadoresChart();
+    renderAlertasTallerNatural(data.alertasTallerNatural || []);
 }
 
 
@@ -2694,4 +2695,65 @@ function switchTab(evt, tabId) {
         targetBtn.style.color = "#173D2D";
     }
 }
+
+
+function renderAlertasTallerNatural(alerts) {
+    const container = document.getElementById("taller-natural-alerts-container");
+    if (!container) return;
+
+    if (!alerts || alerts.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: #4a5568; padding: 25px; font-weight: 500; font-size: 0.9em;">
+                ✅ No hay avisos activos para Taller Natural.
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.88em; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 1.5px solid #e2e8f0; color: #4a5568; font-weight: bold;">
+                    <th style="padding: 8px 12px;">Operario</th>
+                    <th style="padding: 8px 12px; text-align: center;">Días</th>
+                    <th style="padding: 8px 12px; text-align: center;">Aula (Hrs)</th>
+                    <th style="padding: 8px 12px; text-align: center;">Cámara (Hrs)</th>
+                    <th style="padding: 8px 12px;">Tutor</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    alerts.forEach(a => {
+        html += `
+            <tr style="border-bottom: 1px solid #edf2f7; transition: background 0.15s ease;" onmouseover="this.style.backgroundColor='#f7fafc'" onmouseout="this.style.backgroundColor='transparent'">
+                <td style="padding: 10px 12px;">
+                    <a href="/expediente/${a.id}" target="_blank" style="text-decoration: none; color: #2b6cb0; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                        🔗 ${a.nombre}
+                    </a>
+                </td>
+                <td style="padding: 10px 12px; text-align: center; font-weight: 700; color: #c53030;">
+                    ${a.dias}
+                </td>
+                <td style="padding: 10px 12px; text-align: center; color: #4a5568;">
+                    ${a.aula}
+                </td>
+                <td style="padding: 10px 12px; text-align: center; color: #4a5568;">
+                    ${a.camara}
+                </td>
+                <td style="padding: 10px 12px; color: #4a5568;">
+                    ${a.tutor || 'Sin tutor'}
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
 

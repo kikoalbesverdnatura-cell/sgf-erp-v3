@@ -208,19 +208,47 @@ def obtener_dashboard(forzar_refresco=False):
     rojos = 0
     amarillos = 0
     verdes = 0
+    # Alertas Taller Natural (Días >= 15 sin Sacar en H)
+    alertas_taller_natural = []
     try:
         from app.services.persona_service import obtener_personas
-        lista_personas = obtener_personas(excluir_equipo=True)
-        for p in lista_personas:
+        lista_personas_completa = obtener_personas(excluir_equipo=True, filtrar_dias=False)
+        for p in lista_personas_completa:
             color = p.get("color_code")
-            if color == "ROJO":
-                rojos += 1
-            elif color == "AMARILLO":
-                amarillos += 1
-            elif color == "VERDE":
-                verdes += 1
+            dias_val = 0
+            try:
+                dias_val = int(p.get("dias") or 0)
+            except Exception:
+                pass
+                
+            if dias_val <= 31:
+                if color == "ROJO":
+                    rojos += 1
+                elif color == "AMARILLO":
+                    amarillos += 1
+                elif color == "VERDE":
+                    verdes += 1
+            
+            dept_norm = str(p.get("departamento") or "").upper().strip()
+            import unicodedata
+            dept_clean = "".join(c for c in unicodedata.normalize('NFD', dept_norm) if unicodedata.category(c) != 'Mn')
+            dept_clean = " ".join(dept_clean.split())
+            
+            if dept_clean == "TALLER NATURAL":
+                if dias_val >= 15:
+                    horas_h = float(p.get("horas_h") or 0.0)
+                    if horas_h < 0.1:
+                        alertas_taller_natural.append({
+                            "id": p.get("id"),
+                            "nombre": p.get("nombre"),
+                            "dias": dias_val,
+                            "aula": p.get("formacion_aula", "0:00"),
+                            "camara": p.get("formacion_camara", "0:00"),
+                            "tutor": p.get("tutor", "Sin tutor")
+                        })
+        alertas_taller_natural.sort(key=lambda x: x["dias"], reverse=True)
     except Exception as e:
-        pass
+        print(f"Error calculando alertas de Taller Natural: {e}")
 
     # Sobrescribir los KPIs calculados con los reales basados en la hoja SIMPL
     resultado["kpis"]["whatsappPendiente"] = len(personas_whatsapp_add)
@@ -228,6 +256,7 @@ def obtener_dashboard(forzar_refresco=False):
     resultado["kpis"]["semaforoRojo"] = rojos
     resultado["kpis"]["semaforoAmarillo"] = amarillos
     resultado["kpis"]["semaforoVerde"] = verdes
+    resultado["alertasTallerNatural"] = alertas_taller_natural
 
     with _cache_lock:
         _cache_datos = resultado
