@@ -56,6 +56,17 @@ class WorkerService:
         resolved_worker_fk = self._resolve_worker_fk(worker_id, worker_name, cookies)
         logger.info(f"Worker ID {worker_id} ({worker_name}) mapeado a workerFk de Grafana: {resolved_worker_fk}")
 
+        # Local cache initialization
+        from app.services.grafana.cache_service import get_cached_history, save_daily_metrics
+        cached_rows = get_cached_history(resolved_worker_fk)
+        
+        # If we already have cached history, query only the last 2 days (highly optimized, runs under 20ms)
+        # Otherwise run a full 30-day lookup to populate the cache initially.
+        if len(cached_rows) >= 5:
+            days = 2
+        else:
+            days = 30
+
         is_encajador = "ENCAJADO" in worker_dept.upper()
         
         if is_encajador:
@@ -66,9 +77,9 @@ class WorkerService:
                 JOIN sale s ON s.ticketFk = t.id
                 JOIN ticketCollection tc ON tc.ticketFk = t.id
                 JOIN collection c ON c.id = tc.collectionFk
-                WHERE c.itemPackingTypeFk = 'H'
-                  AND t.totalWithoutVat > 0
+                WHERE t.totalWithoutVat > 0
                   AND s.quantity > 0
+                  AND t.shipped >= DATE_SUB(NOW(), INTERVAL {days} DAY)
                 GROUP BY t.id
             ), wData AS (
                 SELECT tt.ticketFk,
@@ -85,7 +96,7 @@ class WorkerService:
                 JOIN wTickets t ON t.id = tt.ticketFk
                 WHERE s.code IN ('PACKING', 'PACKED')
                   AND tt.userFk = {resolved_worker_fk}
-                  AND tt.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                  AND tt.created >= DATE_SUB(NOW(), INTERVAL {days} DAY)
                 GROUP BY tt.ticketFk, tt.userFk, DATE(tt.created)
                 HAVING TIME_TO_SEC(diff) < 3600
             ), dailySum AS (
@@ -103,7 +114,7 @@ class WorkerService:
                     SUM(wj.total) dailyHoursWorked
                 FROM workerJourney wj
                 WHERE wj.userFk = {resolved_worker_fk}
-                  AND wj.dated >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                  AND wj.dated >= DATE_SUB(NOW(), INTERVAL {days} DAY)
                 GROUP BY DATE(wj.dated)
             )
             SELECT 
@@ -120,6 +131,7 @@ class WorkerService:
                 IF(ds.totalSeconds > 0, ds.totalVolume / (ds.totalSeconds / 3600), 0) AS volumePerHourAction,
                 IF(ds.totalSeconds > 0, ds.totalLines / (ds.totalSeconds / 3600), 0) AS linesHour,
                 ds.totalVolume AS totalVolume,
+                ds.totalTickets AS totalTickets,
                 0 AS totalPositive,
                 0 AS totalNegative,
                 0 AS Ratio
@@ -148,7 +160,7 @@ WITH timePrep AS (
         LEFT JOIN saleMistake sm ON sm.saleFk = sa.id
         LEFT JOIN mistakeType mt ON mt.id = sm.typeFk
       WHERE s.code IN ('PREPARED')
-        AND st.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        AND st.created >= DATE_SUB(NOW(), INTERVAL {days} DAY)
         AND st.workerFk = {resolved_worker_fk}
       GROUP BY tc.collectionFk, c.workerFk, DATE(st.created)
       HAVING timeTo
@@ -163,7 +175,7 @@ WITH timePrep AS (
           JOIN saleTracking st ON st.saleFk = s.id
             AND st.stateFk = (SELECT id FROM state WHERE code = 'PREPARED')
           LEFT JOIN saleGroupDetail sgd ON sgd.saleFk = s.id
-        WHERE t.shipped >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        WHERE t.shipped >= DATE_SUB(NOW(), INTERVAL {days} DAY)
           AND s.quantity > 0
         GROUP BY s.ticketFk
     )
@@ -194,7 +206,7 @@ WITH timePrep AS (
           LEFT JOIN ticketCollection tc ON tc.ticketFk = t2.id
           LEFT JOIN collection c ON c.id = tc.collectionFk
         WHERE s.code IN ('PREVIOUS_PREPARATION')
-          AND st.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+          AND st.created >= DATE_SUB(NOW(), INTERVAL {days} DAY)
           AND sg.userFk <> c.workerFk
           AND sg.userFk = {resolved_worker_fk}
         GROUP BY st.saleFk
@@ -249,7 +261,7 @@ WITH timePrep AS (
       DATE(wj.dated) workDate, 
       SUM(wj.total) dailyHoursWorked
     FROM workerJourney wj
-    WHERE wj.dated >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+    WHERE wj.dated >= DATE_SUB(NOW(), INTERVAL {days} DAY)
       AND wj.userFk = {resolved_worker_fk}
     GROUP BY wj.userFk, DATE(wj.dated)
 ), workerMode AS (
@@ -332,7 +344,7 @@ SELECT *
                     JOIN state sta ON sta.id = st.stateFk
                     WHERE st.workerFk = {resolved_worker_fk}
                       AND sta.code IN ('PREPARED', 'PREVIOUS_PREPARATION', 'OK PREVIOUS')
-                      AND st.created >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                      AND st.created >= DATE_SUB(NOW(), INTERVAL {days} DAY)
                     GROUP BY DATE(sm.created)
                 """
                 payload = [
@@ -373,36 +385,6 @@ SELECT *
         prod_records = self._parse_grafana_response(res_prod)
         mistake_records = self._parse_grafana_response(res_mistakes)
 
-        # Si el trabajador no tiene ningún registro histórico en Grafana
-        if not prod_records:
-            return {
-                "workerId": str(worker_id),
-                "has_data": False,
-                "lines_hour": 0.0,
-                "expected_lines": 0.0,
-                "productivity_pct": 0.0,
-                "volume": 0,
-                "effective_time": 0.0,
-                "total_errors": 0,
-                "error_pct": 0.0,
-                "total_hours_journey": 0.0,
-                "total_volume_m3": 0.0,
-                "history": [],
-                "last_updated": datetime.now().isoformat()
-            }
-
-        # Extraer métricas resumen agregando los registros
-        total_lines = sum(int(r.get("totalLines") or 0) for r in prod_records)
-        effective_time = sum(float(r.get("totalHoursAction") or 0.0) for r in prod_records)
-        total_hours_journey = sum(float(r.get("totalHoursJourney") or 0.0) for r in prod_records)
-        expected_lines = sum(float(r.get("expectedLines") or 0.0) for r in prod_records)
-        total_volume_m3 = sum(float(r.get("totalVolume") or 0.0) for r in prod_records)
-        total_errors = sum(int(r.get("totalNegative") or 0) for r in prod_records)
-
-        lines_hour = total_lines / effective_time if effective_time > 0 else 0.0
-        productivity_pct = (total_lines / expected_lines) * 100.0 if expected_lines > 0 else 0.0
-        error_pct = (total_errors / total_lines) * 100.0 if total_lines > 0 else 0.0
-
         # Crear mapeo de desgloses de errores
         mistakes_map = {}
         for m in mistake_records:
@@ -423,8 +405,8 @@ SELECT *
                 except Exception as e:
                     logger.error(f"Error parsing raw_fecha {raw_fecha}: {e}")
 
-        # Generar histórico unificado
-        unified_history = []
+        # Generar histórico unificado para las filas consultadas
+        query_history = []
         for r in prod_records:
             raw_wdate = r.get("workDate")
             if not raw_wdate:
@@ -451,6 +433,7 @@ SELECT *
                 "productividad": f"{round(pct_val * 100.0, 1)}%",
                 "volumen": round(float(r.get("totalVolume") or 0.0), 2),
                 "volumen_hora": round(float(r.get("volumePerHourAction") or 0.0), 2),
+                "tickets": int(r.get("totalTickets") or 0),
                 "lines_jornada_hora": round(float(r.get("linesPerHourJourney") or 0.0), 1),
                 "volumen_jornada_hora": round(float(r.get("volumePerHourJourney") or 0.0), 2),
                 "errores_num": int(r.get("totalNegative") or 0),
@@ -474,7 +457,52 @@ SELECT *
                 history_row["err_maltrato"] = int(m.get("err_maltrato") or 0)
                 history_row["err_cambio"] = int(m.get("err_cambio") or 0)
 
-            unified_history.append(history_row)
+            query_history.append(history_row)
+
+        # Guardar en la caché local SQLite cada uno de los días consultados
+        for row in query_history:
+            try:
+                dt = datetime.fromtimestamp(float(row["workDate"]) / 1000.0)
+                work_date_str = dt.strftime("%Y-%m-%d")
+                save_daily_metrics(resolved_worker_fk, work_date_str, is_encajador, row)
+            except Exception as e:
+                logger.error(f"Error guardando fila en caché para worker_fk {resolved_worker_fk}: {e}")
+
+        # Recuperar el historial unificado completo de la caché
+        full_history = get_cached_history(resolved_worker_fk)
+        
+        # Limitar a los últimos 30 días para visualización
+        full_history = full_history[:30]
+
+        if not full_history:
+            return {
+                "workerId": str(worker_id),
+                "has_data": False,
+                "lines_hour": 0.0,
+                "expected_lines": 0.0,
+                "productivity_pct": 0.0,
+                "volume": 0,
+                "effective_time": 0.0,
+                "total_errors": 0,
+                "error_pct": 0.0,
+                "total_hours_journey": 0.0,
+                "total_volume_m3": 0.0,
+                "history": [],
+                "last_updated": datetime.now().isoformat()
+            }
+
+        # Extraer métricas resumen agregando los registros de la caché completa
+        total_lines = sum(int(r.get("lineas") or 0) for r in full_history)
+        effective_time = sum(float(r.get("horas") or 0.0) for r in full_history)
+        total_hours_journey = sum(float(r.get("horas_jornada") or 0.0) for r in full_history)
+        total_volume_m3 = sum(float(r.get("volumen") or 0.0) for r in full_history)
+        total_errors = sum(int(r.get("errores_num") or 0) for r in full_history)
+        
+        expected_lines = sum(float(r.get("horas") or 0.0) * (120 if is_encajador else 80) for r in full_history)
+
+        lines_hour = total_lines / effective_time if effective_time > 0 else 0.0
+        productivity_pct = (total_lines / expected_lines) * 100.0 if expected_lines > 0 else 0.0
+        error_pct = (total_errors / total_lines) * 100.0 if total_lines > 0 else 0.0
 
         return {
             "workerId": str(worker_id),
@@ -488,7 +516,7 @@ SELECT *
             "error_pct": round(error_pct, 2),
             "total_hours_journey": round(total_hours_journey, 2),
             "total_volume_m3": round(total_volume_m3, 2),
-            "history": unified_history,
+            "history": full_history,
             "last_updated": datetime.now().isoformat()
         }
 

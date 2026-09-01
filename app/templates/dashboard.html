@@ -116,7 +116,17 @@
     {% if usuario and usuario.rol == 'Administrador' %}
     <section class="dashboardGrid" style="margin-top: 20px; grid-template-columns: 1fr;">
         <div class="panel panelLarge" style="width: 100%;">
-            <h2>📝 Anotaciones de Formadores Restringidos (Daniel, Norman, Dodo)</h2>
+            <h2>📝 Anotaciones de Formadores Restringidos</h2>
+            
+            <div style="display: flex; gap: 8px; border-bottom: 2.2px solid #edf2ee; padding-bottom: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                <button class="tab-btn-restringidos active" onclick="switchRestringidosTab(event, 'todos')" style="background: none; border: none; font-size: 0.85em; font-weight: 800; color: #173D2D; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s;">📋 Todos</button>
+                <button class="tab-btn-restringidos" onclick="switchRestringidosTab(event, 'daniel')" style="background: none; border: none; font-size: 0.85em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s;">Daniel</button>
+                <button class="tab-btn-restringidos" onclick="switchRestringidosTab(event, 'norman')" style="background: none; border: none; font-size: 0.85em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s;">Norman</button>
+                <button class="tab-btn-restringidos" onclick="switchRestringidosTab(event, 'dodo')" style="background: none; border: none; font-size: 0.85em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s;">Dodo</button>
+                <button class="tab-btn-restringidos" onclick="switchRestringidosTab(event, 'andres')" style="background: none; border: none; font-size: 0.85em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s;">Andres</button>
+                <button class="tab-btn-restringidos" onclick="switchRestringidosTab(event, 'fran')" style="background: none; border: none; font-size: 0.85em; font-weight: 800; color: #718096; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: all 0.2s;">Fran</button>
+            </div>
+
             <div id="panelObservacionesRestringidos" class="listPanel" style="max-height: 320px; overflow-y: auto;">
                 <div style="text-align: center; color: #718096; padding: 20px;">
                     Cargando anotaciones de formadores...
@@ -258,9 +268,10 @@
             <div class="panel-pro" style="min-height: auto;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid #edf2ee; padding-bottom: 8px; margin-bottom: 15px;">
                     <h2 style="margin: 0; font-size: 1.1em; color: #173D2D; display: flex; align-items: center; gap: 6px;">📊 Desempeño de Sacadores en Formación</h2>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="primaryButton" style="background:#e8f5ee; color:#173D2D; padding: 4px 10px; font-size: 0.8em; border-radius: 6px;" onclick="toggleRendimientoView('hoy')" id="btn-rendimiento-hoy">Local (Hoy)</button>
-                        <button class="primaryButton" style="background:#ebf8ff; color:#2b6cb0; padding: 4px 10px; font-size: 0.8em; border-radius: 6px;" onclick="toggleRendimientoView('historico')" id="btn-rendimiento-historico">Local (Histórico)</button>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="date" id="rendimiento-fecha" style="padding: 4px 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.85em; color: #2d3748; outline: none; background: #fff; font-family: inherit; font-weight: bold; cursor: pointer; transition: all 0.2s;" onchange="filtrarRendimientoPorFecha(this.value)">
+                        <button class="primaryButton" style="background:#e8f5ee; color:#173D2D; padding: 4px 10px; font-size: 0.8em; border-radius: 6px; transition: all 0.2s;" onclick="toggleRendimientoView('hoy')" id="btn-rendimiento-hoy">Local (Hoy)</button>
+                        <button class="primaryButton" style="background:#ebf8ff; color:#2b6cb0; padding: 4px 10px; font-size: 0.8em; border-radius: 6px; transition: all 0.2s;" onclick="toggleRendimientoView('historico')" id="btn-rendimiento-historico">Local (Histórico)</button>
                     </div>
                 </div>
                 
@@ -516,6 +527,6 @@
 
 </div>
 
-<script src="/static/js/dashboard.js?v=41"></script>
+<script src="/static/js/dashboard.js?v=44"></script>
 
 {% endblock %}

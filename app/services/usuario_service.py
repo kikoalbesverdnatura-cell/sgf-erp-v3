@@ -23,7 +23,22 @@ def obtener_hoja_usuarios():
         sheet.append_row(["5289", "FRANCISCO ALBERT ESCUDERO", "kiko.albert", "12345", "Administrador", "Sí"])
     return sheet
 
+import threading
+import time
+
+_usuarios_cache = None
+_usuarios_timestamp = 0.0
+_usuarios_lock = threading.Lock()
+USUARIOS_CACHE_TTL = 300  # 5 minutos
+
 def obtener_usuarios() -> List[Dict[str, Any]]:
+    global _usuarios_cache, _usuarios_timestamp
+    ahora = time.time()
+    
+    with _usuarios_lock:
+        if _usuarios_cache is not None and (ahora - _usuarios_timestamp) < USUARIOS_CACHE_TTL:
+            return _usuarios_cache
+            
     try:
         sheet = obtener_hoja_usuarios()
         records = sheet.get_all_records()
@@ -38,12 +53,21 @@ def obtener_usuarios() -> List[Dict[str, Any]]:
                 "rol": str(r.get("ROL", "Formador")),
                 "activo": str(r.get("ACTIVO", "Sí"))
             })
+            
+        with _usuarios_lock:
+            _usuarios_cache = usuarios
+            _usuarios_timestamp = ahora
+            
         return usuarios
     except Exception as e:
         logger.error(f"Error al obtener usuarios: {e}")
+        with _usuarios_lock:
+            if _usuarios_cache is not None:
+                return _usuarios_cache
         return []
 
 def guardar_usuario(datos: Dict[str, Any]) -> Dict[str, Any]:
+    global _usuarios_cache
     try:
         sheet = obtener_hoja_usuarios()
         
@@ -65,21 +89,31 @@ def guardar_usuario(datos: Dict[str, Any]) -> Dict[str, Any]:
             str(datos.get("activo", "Sí")).strip()
         ]
         sheet.append_row(nueva_fila)
+        
+        with _usuarios_lock:
+            _usuarios_cache = None
+            
         return {"ok": True}
     except Exception as e:
         logger.error(f"Error al guardar usuario: {e}")
         return {"ok": False, "error": str(e)}
 
 def eliminar_usuario(fila_idx: int) -> Dict[str, Any]:
+    global _usuarios_cache
     try:
         sheet = obtener_hoja_usuarios()
         sheet.delete_rows(fila_idx)
+        
+        with _usuarios_lock:
+            _usuarios_cache = None
+            
         return {"ok": True}
     except Exception as e:
         logger.error(f"Error al eliminar usuario: {e}")
         return {"ok": False, "error": str(e)}
 
 def actualizar_usuario(fila_idx: int, datos: Dict[str, Any]) -> Dict[str, Any]:
+    global _usuarios_cache
     try:
         sheet = obtener_hoja_usuarios()
         
@@ -96,6 +130,9 @@ def actualizar_usuario(fila_idx: int, datos: Dict[str, Any]) -> Dict[str, Any]:
             sheet.update_cell(fila_idx, 5, str(datos["rol"]).strip())
         if "activo" in datos:
             sheet.update_cell(fila_idx, 6, str(datos["activo"]).strip())
+            
+        with _usuarios_lock:
+            _usuarios_cache = None
             
         return {"ok": True}
     except Exception as e:

@@ -6,20 +6,7 @@ let dashboardData = null;
 let filtroIncorporacionesActivo = "hoy";
 let chartNotasSacadoresInstance = null;
 let alertasSeguimiento = [];
-
-const escapeHtml = (val) => String(val || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-
-const escapeAttr = (val) => String(val || "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+let restrictedTimeline = [];
 
 window.tutoresDisponibles = [];
 
@@ -91,8 +78,18 @@ function renderDashboard(data) {
     loadTrainingStats();
     renderNotasSacadoresChart();
     renderAlertasTallerNatural(data.alertasTallerNatural || []);
+    restrictedTimeline = data.timelineRestringidos || [];
     if (document.getElementById("panelObservacionesRestringidos")) {
-        renderObservacionesRestringidos(data.timelineRestringidos || []);
+        document.querySelectorAll(".tab-btn-restringidos").forEach(el => {
+            el.classList.remove("active");
+            el.style.color = "#718096";
+        });
+        const defaultBtn = document.querySelector(".tab-btn-restringidos[onclick*='todos']");
+        if (defaultBtn) {
+            defaultBtn.classList.add("active");
+            defaultBtn.style.color = "#173D2D";
+        }
+        renderObservacionesRestringidos(restrictedTimeline);
     }
 }
 
@@ -2565,18 +2562,22 @@ async function abrirModalFase(fase) {
 }
 
 
-async function renderNotasSacadoresChart(diario = true) {
+async function renderNotasSacadoresChart(diario = true, fecha = null) {
     const canvas = document.getElementById("chartNotasSacadores");
     const noDataMsg = document.getElementById("chart-no-data-msg");
     if (!canvas) return;
     
     try {
-        const res = await fetch(`/api/personas?diario=${diario}`);
+        let url = `/api/personas?diario=${diario}`;
+        if (fecha) {
+            url += `&fecha=${fecha}`;
+        }
+        const res = await fetch(url);
         const personas = await res.json();
         
         // Filtrar personas con nota válida en departamentos de sacadores o taller natural
         const sacadores = personas.filter(p => {
-            const depto = String(p.departamento || "").toUpperCase().trim();
+            const depto = String(p.departamento || "").toUpperCase().replace("TALLLER", "TALLER").trim();
             return (depto.includes("SACADO") || depto.includes("TALLER NATURAL")) && p.nota !== undefined && p.nota !== null && p.nota > 0;
         });
         
@@ -2586,9 +2587,15 @@ async function renderNotasSacadoresChart(diario = true) {
         if (sacadores.length === 0) {
             canvas.style.display = "none";
             if (noDataMsg) {
-                noDataMsg.textContent = diario 
-                    ? "No hay datos de notas de sacadores activos en formación hoy." 
-                    : "No hay datos de notas de sacadores activos en formación en los últimos 14 días.";
+                if (fecha) {
+                    let parts = fecha.split("-");
+                    let dateStr = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : fecha;
+                    noDataMsg.textContent = `No hay datos de notas de sacadores activos en formación para el día ${dateStr}.`;
+                } else {
+                    noDataMsg.textContent = diario 
+                        ? "No hay datos de notas de sacadores activos en formación hoy." 
+                        : "No hay datos de notas de sacadores activos en formación en los últimos 14 días.";
+                }
                 noDataMsg.style.display = "block";
             }
             return;
@@ -2777,6 +2784,14 @@ function renderAlertasTallerNatural(alerts) {
 function toggleRendimientoView(viewType) {
     const btnHoy = document.getElementById("btn-rendimiento-hoy");
     const btnHistorico = document.getElementById("btn-rendimiento-historico");
+    const inputFecha = document.getElementById("rendimiento-fecha");
+    
+    if (inputFecha) {
+        inputFecha.value = "";
+        inputFecha.style.borderColor = "#cbd5e0";
+        inputFecha.style.background = "#fff";
+        inputFecha.style.color = "#2d3748";
+    }
     
     if (viewType === 'hoy') {
         if (btnHoy) {
@@ -2805,13 +2820,44 @@ function toggleRendimientoView(viewType) {
     }
 }
 
+window.filtrarRendimientoPorFecha = function(fechaStr) {
+    if (!fechaStr) return;
+    
+    const btnHoy = document.getElementById("btn-rendimiento-hoy");
+    const btnHistorico = document.getElementById("btn-rendimiento-historico");
+    const inputFecha = document.getElementById("rendimiento-fecha");
+    
+    if (btnHoy) {
+        btnHoy.style.background = "#ebf8ff";
+        btnHoy.style.color = "#2b6cb0";
+    }
+    if (btnHistorico) {
+        btnHistorico.style.background = "#ebf8ff";
+        btnHistorico.style.color = "#2b6cb0";
+    }
+    if (inputFecha) {
+        inputFecha.style.borderColor = "#173D2D";
+        inputFecha.style.background = "#e8f5ee";
+        inputFecha.style.color = "#173D2D";
+    }
+    
+    // Cargar gráfico local filtrando por ese día específico
+    renderNotasSacadoresChart(true, fechaStr);
+};
 
-function renderObservacionesRestringidos(items) {
+
+function renderObservacionesRestringidos(items, filterKey = 'todos') {
     const panel = document.getElementById("panelObservacionesRestringidos");
     if (!panel) return;
 
     if (!items || !items.length) {
-        panel.innerHTML = `<p class="empty">Sin anotaciones recientes de Daniel, Norman o Dodo.</p>`;
+        let msg = "Sin anotaciones recientes de formadores restringidos.";
+        if (filterKey === "daniel") msg = "Sin anotaciones recientes de Daniel.";
+        else if (filterKey === "norman") msg = "Sin anotaciones recientes de Norman.";
+        else if (filterKey === "dodo") msg = "Sin anotaciones recientes de Dodo.";
+        else if (filterKey === "andres") msg = "Sin anotaciones recientes de Andres.";
+        else if (filterKey === "fran") msg = "Sin anotaciones recientes de Fran.";
+        panel.innerHTML = `<p class="empty">${msg}</p>`;
         return;
     }
 
@@ -2820,7 +2866,7 @@ function renderObservacionesRestringidos(items) {
         let badgeBg = "#edf2f7";
         const tipo = String(item.tipo || "General").trim();
         const lowerTipo = tipo.toLowerCase();
-        
+
         if (lowerTipo.includes("riesgo") || lowerTipo.includes("alerta") || lowerTipo.includes("error") || lowerTipo.includes("atención") || lowerTipo.includes("atencion")) {
             badgeColor = "#e53e3e"; // rojo
             badgeBg = "#fff5f5";
@@ -2834,7 +2880,7 @@ function renderObservacionesRestringidos(items) {
 
         const autor = item.autor_id ? `por ${escapeHtml(item.autor_id)}` : "";
         const fecha = escapeHtml(item.fecha_registro || "");
-        
+
         return `
             <div class="listItem clickable" onclick="abrirExpediente('${escapeAttr(item.id_persona)}')" style="display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-bottom: 1px solid #edf2f7; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#f7fafc'" onmouseout="this.style.background='transparent'">
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85em;">
@@ -2853,6 +2899,39 @@ function renderObservacionesRestringidos(items) {
     }).join("");
 
     panel.innerHTML = html;
+}
+
+function switchRestringidosTab(evt, filterKey) {
+    document.querySelectorAll(".tab-btn-restringidos").forEach(el => {
+        el.classList.remove("active");
+        el.style.color = "#718096";
+    });
+    if (evt && evt.currentTarget) {
+        evt.currentTarget.classList.add("active");
+        evt.currentTarget.style.color = "#173D2D";
+    }
+
+    let filtered = [];
+    if (filterKey === "todos") {
+        filtered = restrictedTimeline;
+    } else {
+        filtered = restrictedTimeline.filter(item => {
+            const autor = String(item.autor_id || "").toLowerCase();
+            const creador = String(item.creado_por || "").toLowerCase();
+
+            if (filterKey === "daniel") return autor.includes("daniel") || creador.includes("daniel");
+            if (filterKey === "norman") return autor.includes("norman") || creador.includes("norman");
+            if (filterKey === "dodo") return autor.includes("dodo") || creador.includes("dodo");
+            if (filterKey === "andres") return autor.includes("andres") || autor.includes("andrés") || creador.includes("andres") || creador.includes("andrés");
+            if (filterKey === "fran") {
+                const isKiko = autor.includes("albert") || autor.includes("kiko") || creador.includes("albert") || creador.includes("kiko");
+                return (autor.includes("fran") || creador.includes("fran")) && !isKiko;
+            }
+            return false;
+        });
+    }
+
+    renderObservacionesRestringidos(filtered, filterKey);
 }
 
 

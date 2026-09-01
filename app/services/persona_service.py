@@ -1,6 +1,7 @@
 from app.services.google_service import abrir_documento, abrir_documento_por_key
 from gspread.utils import rowcol_to_a1
 
+import os
 import threading
 import time
 
@@ -14,6 +15,9 @@ _grafana_perf_lock = threading.Lock()
 _grafana_perf_diario_cache = None
 _grafana_perf_diario_timestamp = 0.0
 _grafana_perf_diario_lock = threading.Lock()
+
+_grafana_perf_fecha_cache = {}
+_grafana_perf_fecha_lock = threading.Lock()
 
 # Caché global en memoria para los datos de Google Sheets de personas
 _personas_cache = None
@@ -40,6 +44,11 @@ _errores_grafana_cache = None
 _errores_grafana_timestamp = 0.0
 _errores_grafana_lock = threading.Lock()
 ERRORES_GRAFANA_CACHE_TTL = 300  # 5 minutos
+
+_horas_formacion_cache = None
+_horas_formacion_timestamp = 0.0
+_horas_formacion_lock = threading.Lock()
+HORAS_FORMACION_CACHE_TTL = 300  # 5 minutos
 
 def obtener_filas_maestro_personas(forzar_refresco=False):
     global _personas_cache, _personas_cache_timestamp
@@ -93,6 +102,11 @@ def invalidar_todas_las_caches():
     with _mapped_personas_lock:
         _mapped_personas_cache.clear()
         _mapped_personas_timestamp = 0.0
+
+    global _horas_formacion_cache, _horas_formacion_timestamp
+    with _horas_formacion_lock:
+        _horas_formacion_cache = None
+        _horas_formacion_timestamp = 0.0
         
     try:
         from app.services import dashboard_service
@@ -177,13 +191,20 @@ def guardar_override_async(id_trabajador, campo, valor):
     threading.Thread(target=task, daemon=True).start()
     return True
 
-def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_actual=False):
+def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_actual=False, fecha=None):
     global _grafana_perf_cache, _grafana_perf_timestamp
     global _grafana_perf_diario_cache, _grafana_perf_diario_timestamp
+    global _grafana_perf_fecha_cache
     
     ahora = time.time()
     if not forzar_refresco:
-        if dia_actual:
+        if fecha:
+            with _grafana_perf_fecha_lock:
+                if fecha in _grafana_perf_fecha_cache:
+                    ts, cache_res = _grafana_perf_fecha_cache[fecha]
+                    if (ahora - ts) < 300: # 5 minutos
+                        return cache_res
+        elif dia_actual:
             with _grafana_perf_diario_lock:
                 if _grafana_perf_diario_cache is not None and (ahora - _grafana_perf_diario_timestamp) < 60: # 1 minuto para hoy
                     return _grafana_perf_diario_cache
@@ -195,6 +216,64 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_act
     resultado = {}
     if not active_ids:
         return resultado
+
+    # Intentar cargar desde la caché local SQLite primero para consultas agregadas
+    from app.services.grafana.cache_service import get_cached_history
+    ids_to_query_mysql = []
+    
+    for w_id in active_ids:
+        try:
+            worker_fk = int(str(w_id).strip())
+        except ValueError:
+            continue
+            
+        cached_rows = get_cached_history(worker_fk)
+        if cached_rows and not fecha and not dia_actual and not forzar_refresco:
+            active_days = cached_rows[:14]
+            total_lines = sum(int(r.get("lineas") or 0) for r in active_days)
+            total_volume = sum(float(r.get("volumen") or 0.0) for r in active_days)
+            total_hours = sum(float(r.get("horas") or 0.0) for r in active_days)
+            
+            is_enc = False
+            for r in active_days:
+                if "ENCAJADO" in str(r.get("departamento") or "").upper():
+                    is_enc = True
+                    break
+                    
+            expected_lines = total_hours * (120 if is_enc else 80)
+            
+            rend = total_lines / expected_lines if expected_lines > 0 else 0.0
+            lh = total_lines / total_hours if total_hours > 0 else 0.0
+            vol_h = total_volume / total_hours if total_hours > 0 else 0.0
+            
+            horas_h = 0.0
+            horas_v = 0.0
+            for r in active_days:
+                dept = str(r.get("departamento") or "").upper()
+                hours_val = float(r.get("horas") or 0.0)
+                if "SACADO H" in dept or "ENCAJADO" in dept:
+                    horas_h += hours_val
+                elif "SACADO V" in dept:
+                    horas_v += hours_val
+                else:
+                    horas_h += hours_val
+                    
+            resultado[str(w_id)] = {
+                "rendimiento": f"{rend * 100:.1f}%" if total_hours > 0 else "",
+                "lineas_hora": f"{lh:.1f}" if total_hours > 0 else "",
+                "total_lineas": int(total_lines),
+                "volumen_hora": float(round(vol_h, 2)),
+                "horas_h": float(round(horas_h, 1)),
+                "horas_v": float(round(horas_v, 1))
+            }
+        else:
+            ids_to_query_mysql.append(w_id)
+            
+    # Si todos los IDs se resolvieron por caché, retornamos inmediatamente!
+    if not ids_to_query_mysql:
+        return resultado
+        
+    active_ids = ids_to_query_mysql
 
     try:
         from app.services.grafana.client import GrafanaClient
@@ -362,9 +441,9 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_act
             JOIN sale s ON s.ticketFk = t.id
             JOIN ticketCollection tc ON tc.ticketFk = t.id
             JOIN collection c ON c.id = tc.collectionFk
-            WHERE c.itemPackingTypeFk = 'H'
-              AND t.totalWithoutVat > 0
+            WHERE t.totalWithoutVat > 0
               AND s.quantity > 0
+              AND t.shipped >= DATE_SUB(NOW(), INTERVAL 14 DAY)
             GROUP BY t.id
         ), wData AS (
             SELECT tt.ticketFk,
@@ -394,7 +473,18 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_act
         GROUP BY userFk
         """
 
-        if dia_actual:
+        if fecha:
+            # Reemplazar con el día específico (usamos DATE(columna) = 'fecha' para filtrar exactamente ese día)
+            sql = sql.replace("st.created >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(st.created) = '{fecha}'")
+            sql = sql.replace("t.shipped >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(t.shipped) = '{fecha}'")
+            sql = sql.replace("timed >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(timed) = '{fecha}'")
+            
+            sql_hv = sql_hv.replace("st.created >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(st.created) = '{fecha}'")
+            sql_hv = sql_hv.replace("timed >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(timed) = '{fecha}'")
+            
+            sql_encajadores = sql_encajadores.replace("tt.created >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(tt.created) = '{fecha}'")
+            sql_encajadores = sql_encajadores.replace("t.shipped >= DATE_SUB(NOW(), INTERVAL 14 DAY)", f"DATE(t.shipped) = '{fecha}'")
+        elif dia_actual:
             sql = sql.replace("DATE_SUB(NOW(), INTERVAL 14 DAY)", "CURRENT_DATE()")
             sql_hv = sql_hv.replace("DATE_SUB(NOW(), INTERVAL 14 DAY)", "CURRENT_DATE()")
             sql_encajadores = sql_encajadores.replace("DATE_SUB(NOW(), INTERVAL 14 DAY)", "CURRENT_DATE()")
@@ -484,7 +574,10 @@ def obtener_rendimiento_grafana_batch(active_ids, forzar_refresco=False, dia_act
     except Exception as e:
         print(f"Error querying Grafana batch: {e}")
 
-    if dia_actual:
+    if fecha:
+        with _grafana_perf_fecha_lock:
+            _grafana_perf_fecha_cache[fecha] = (ahora, resultado)
+    elif dia_actual:
         with _grafana_perf_diario_lock:
             _grafana_perf_diario_cache = resultado
             _grafana_perf_diario_timestamp = ahora
@@ -596,11 +689,11 @@ def calcular_color_semaforo(persona, pct_val, err_val, total_lineas):
         return "AMARILLO"
 
 
-def obtener_personas(excluir_equipo=False, filtrar_dias=True, diario=False):
+def obtener_personas(excluir_equipo=False, filtrar_dias=True, diario=False, fecha=None):
     global _mapped_personas_cache, _mapped_personas_timestamp
     ahora = time.time()
     
-    cache_key = (excluir_equipo, filtrar_dias, diario)
+    cache_key = (excluir_equipo, filtrar_dias, diario, fecha)
     with _mapped_personas_lock:
         if (cache_key in _mapped_personas_cache) and (ahora - _mapped_personas_timestamp) < MAPPED_PERSONAS_CACHE_TTL:
             return _mapped_personas_cache[cache_key]
@@ -647,7 +740,7 @@ def obtener_personas(excluir_equipo=False, filtrar_dias=True, diario=False):
     # 2. Obtener datos de rendimiento por lote desde Grafana (tiempo real)
     grafana_perf = {}
     if active_ids:
-        grafana_perf = obtener_rendimiento_grafana_batch(active_ids, dia_actual=diario)
+        grafana_perf = obtener_rendimiento_grafana_batch(active_ids, dia_actual=diario, fecha=fecha)
  
     # 3. Obtener datos de rendimiento del excel de Formadores (secondary fallback)
     global _formadores_perf_cache, _formadores_perf_timestamp
@@ -949,7 +1042,22 @@ def obtener_persona(id_trabajador, incluir_grafana=False):
                 datos_persona["nota"] = 0.0
                 datos_persona["horas_h"] = 0.0
                 datos_persona["horas_v"] = 0.0
+                
+            # Inyectar límites de operador (Salix con overrides)
+            limites = obtener_limites_salix(id_val)
+            overrides = obtener_overrides().get(id_val, {})
             
+            lines_limit = overrides.get("lines_limit")
+            if lines_limit is None:
+                lines_limit = limites.get("lines_limit", 0)
+                
+            volume_limit = overrides.get("volume_limit")
+            if volume_limit is None:
+                volume_limit = limites.get("volume_limit", 0.0)
+                
+            datos_persona["lines_limit"] = int(lines_limit)
+            datos_persona["volume_limit"] = float(volume_limit)
+
             # 2. Le inyectamos el historial de Grafana solo si se solicita
             if incluir_grafana:
                 datos_persona["grafana_historico"] = obtener_historial_grafana(id_trabajador)
@@ -997,13 +1105,16 @@ def obtener_historial_sacador(worker_id):
                   SUM(IF(sgd.saleFk IS NULL, 1, 0)) + COUNT(DISTINCT sgd.saleGroupFk) totalLines,
                   SUM(IF(st.stateFk IN (SELECT id FROM state WHERE code IN ('PREVIOUS_PREPARATION', 'OK PREVIOUS') or isPreviousPreparable = 1), 1, 0)) totalLinesPrevia,
                   SUM(s.volume) volume
-                FROM ticket t
+                FROM ticket t FORCE INDEX (Fecha)
                   JOIN sale s ON s.ticketFk = t.id
                   JOIN saleTracking st ON st.saleFk = s.id
                     AND st.stateFk IN (SELECT id FROM state WHERE code IN ('PREPARED', 'PREVIOUS_PREPARATION', 'OK PREVIOUS') or isPreviousPreparable = 1)
                   LEFT JOIN saleGroupDetail sgd ON sgd.saleFk = s.id
+                  JOIN ticketCollection tc2 ON tc2.ticketFk = t.id
+                  JOIN collection c2 ON c2.id = tc2.collectionFk
                 WHERE t.shipped >= DATE_SUB(NOW(), INTERVAL 14 DAY)
                   AND s.quantity > 0
+                  AND c2.workerFk = {w_id}
                 GROUP BY s.ticketFk
             )
             SELECT tc.collectionFk,
@@ -1095,6 +1206,30 @@ def obtener_historial_sacador(worker_id):
         return resultado
     except Exception as e:
         print(f"Error en obtener_historial_sacador: {e}")
+        return []
+
+
+def obtener_historial_encajador(worker_id):
+    try:
+        resolved_worker_fk = int(str(worker_id).strip())
+            
+        from app.services.grafana.cache_service import get_cached_history
+        cached_rows = get_cached_history(resolved_worker_fk)
+        
+        resultado = []
+        for r in cached_rows:
+            pct = float(r.get("productividad_num") or 0.0)
+            rendimiento = pct / 100.0
+            resultado.append({
+                "fecha": r.get("fecha"),
+                "lineas_hora": r.get("lineas_hora"),
+                "total_lineas": r.get("lineas"),
+                "volumen_hora": r.get("volumen_hora"),
+                "rendimiento": rendimiento
+            })
+        return resultado
+    except Exception as e:
+        print(f"Error en obtener_historial_encajador: {e}")
         return []
 
 
@@ -1289,6 +1424,8 @@ def mapear_persona(p, overrides=None, horas_formacion=None):
     worker_overrides = overrides.get(w_id, {})
     
     dept = worker_overrides.get("departamento", p.get("DEPARTAMENTO_ORIGEN", ""))
+    if isinstance(dept, str):
+        dept = dept.replace("TALLLER", "TALLER")
     obs = worker_overrides.get("observaciones", p.get("Observaciones", ""))
     chaleco = worker_overrides.get("chaleco", "NO")
     hora_entrada = worker_overrides.get("hora_entrada", "08:00")
@@ -1562,16 +1699,58 @@ def actualizar_campo_persona(datos):
         if not id_trabajador or not campo:
             return {"ok": False, "error": "Faltan campos id o campo"}
 
-        # Si editamos departamento, observaciones, chaleco, hora_entrada o campos actitudinales,
+        # Si editamos departamento, observaciones, chaleco, hora_entrada, campos actitudinales o límites,
         # guardamos la modificación en la hoja de overrides para no provocar errores en las fórmulas
         if campo in [
             "departamento", "observaciones", "chaleco", "hora_entrada",
             "act_proactividad", "act_autonomia", "act_disposicion",
             "act_respeto", "act_receptividad", "act_uso_pda",
-            "resumen_validado"
+            "resumen_validado", "lines_limit", "volume_limit"
         ]:
             ok = guardar_override_async(id_trabajador, campo, valor)
             if ok:
+                # Si es un límite, registrar en HISTORIAL_360
+                if campo in ("lines_limit", "volume_limit"):
+                    try:
+                        from datetime import datetime
+                        try:
+                            import pytz
+                            madrid_tz = pytz.timezone("Europe/Madrid")
+                            fecha_str = datetime.now(madrid_tz).strftime("%Y-%m-%d %H:%M:%S")
+                        except ImportError:
+                            fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            
+                        # Obtener nombre del trabajador para el log
+                        from app.services.persona_service import obtener_persona
+                        p_info = obtener_persona(id_trabajador)
+                        nombre_trabajador = p_info.get("nombre", "") if isinstance(p_info, dict) else ""
+                        
+                        modificado_por = datos.get("usuario") or "Desconocido"
+                        
+                        indicador_map = {
+                            "lines_limit": "Líneas Límite",
+                            "volume_limit": "Volumen Límite"
+                        }
+                        indicador = indicador_map[campo]
+                        
+                        doc = abrir_documento_por_key(SPREADSHEET_VALORACION_ID)
+                        try:
+                            hoja_hist = doc.worksheet("HISTORIAL_360")
+                        except Exception:
+                            hoja_hist = doc.add_worksheet(title="HISTORIAL_360", rows="2000", cols="6")
+                            hoja_hist.append_row(["Fecha", "ID Trabajador", "Trabajador", "Usuario", "Indicador", "Valor Nuevo"])
+                            
+                        hoja_hist.append_row([
+                            fecha_str,
+                            str(id_trabajador).strip(),
+                            str(nombre_trabajador).strip(),
+                            str(modificado_por).strip(),
+                            str(indicador).strip(),
+                            str(valor)
+                        ])
+                    except Exception as ex_log:
+                        logger.error(f"Error al escribir en HISTORIAL_360 para límites: {ex_log}")
+                
                 return {"ok": True}
             else:
                 return {"ok": False, "error": "No se pudo guardar la modificación (error en la hoja de cálculo)"}
@@ -1833,12 +2012,12 @@ SPREADSHEET_VALORACION_ID = "1-Gnh_9aAoK2-cFspaGqV8gHedcazcoffuBd0pKb1NPU"
 
 def obtener_valoracion_actitudinal(id_trabajador):
     default_valores = {
-        "Proactividad": 0,
-        "Autonomía": 0,
-        "Disposición": 0,
-        "Respeto normativo": 0,
-        "Receptividad": 0,
-        "Uso PDA": 0
+        "Rigor y Calidad de Ejecución": 0,
+        "Receptividad al Feedback": 0,
+        "Iniciativa y Ritmo Operativo": 0,
+        "Comprensión y Comunicación (Idioma y Lectura)": 0,
+        "Resolución y Agilidad Numérica (Cálculo Operativo)": 0,
+        "Manejo Técnico de Herramientas (Terminal PDA)": 0
     }
     
     try:
@@ -1848,8 +2027,17 @@ def obtener_valoracion_actitudinal(id_trabajador):
         try:
             w = doc.worksheet(str(id_trabajador).strip())
         except gspread.exceptions.WorksheetNotFound:
-            # Pestaña no encontrada, se devuelven los valores por defecto
-            return {"ok": True, "valores": default_valores, "error_acceso": False, "creado": False}
+            # Pestaña no encontrada, intentar leer de overrides como fallback de compatibilidad
+            from app.services.persona_service import obtener_overrides
+            ovs = obtener_overrides().get(str(id_trabajador).strip(), {})
+            actitudes = default_valores.copy()
+            actitudes["Rigor y Calidad de Ejecución"] = convertir_nota_actitudinal(ovs.get("act_respeto", 0))
+            actitudes["Receptividad al Feedback"] = convertir_nota_actitudinal(ovs.get("act_receptividad", 0))
+            actitudes["Iniciativa y Ritmo Operativo"] = convertir_nota_actitudinal(ovs.get("act_proactividad", 0))
+            actitudes["Comprensión y Comunicación (Idioma y Lectura)"] = convertir_nota_actitudinal(ovs.get("act_disposicion", 0))
+            actitudes["Resolución y Agilidad Numérica (Cálculo Operativo)"] = convertir_nota_actitudinal(ovs.get("act_autonomia", 0))
+            actitudes["Manejo Técnico de Herramientas (Terminal PDA)"] = convertir_nota_actitudinal(ovs.get("act_uso_pda", 0))
+            return {"ok": True, "valores": actitudes, "error_acceso": False, "creado": False}
             
         values = w.get_all_values()
         
@@ -1883,11 +2071,27 @@ def obtener_valoracion_actitudinal(id_trabajador):
                     if header_col + 1 < len(row):
                         val_str = str(row[header_col + 1]).strip()
                         
-                    # Mapeamos a las actitudes conocidas
+                    # Mapeamos a las actitudes conocidas (soporta nombres viejos y nuevos)
                     for k in actitudes.keys():
+                        is_match = False
                         if k.lower() == name.lower() or name.lower() in k.lower() or k.lower() in name.lower():
+                            is_match = True
+                        elif name.lower() == "proactividad" and k == "Iniciativa y Ritmo Operativo":
+                            is_match = True
+                        elif name.lower() == "autonomía" and k == "Resolución y Agilidad Numérica (Cálculo Operativo)":
+                            is_match = True
+                        elif name.lower() == "disposición" and k == "Comprensión y Comunicación (Idioma y Lectura)":
+                            is_match = True
+                        elif name.lower() == "respeto normativo" and k == "Rigor y Calidad de Ejecución":
+                            is_match = True
+                        elif name.lower() == "receptividad" and k == "Receptividad al Feedback":
+                            is_match = True
+                        elif name.lower() == "uso pda" and k == "Manejo Técnico de Herramientas (Terminal PDA)":
+                            is_match = True
+                            
+                        if is_match:
                             try:
-                                val_num = int(val_str) if val_str else 0
+                                val_num = int(float(str(val_str).replace(",", ".").strip())) if val_str else 0
                                 actitudes[k] = val_num
                             except ValueError:
                                 actitudes[k] = 0
@@ -1897,11 +2101,11 @@ def obtener_valoracion_actitudinal(id_trabajador):
         
     except Exception as e:
         logger.error(f"Error al obtener valoración actitudinal para {id_trabajador}: {e}")
-        err_msg = str(e) if str(e) else "Error de permisos. Comparta la hoja de cálculo con sgf-enterprise@my-project-81923-501308.iam.gserviceaccount.com como Editor."
+        err_msg = str(e) if str(e) else "Error de permisos."
         return {"ok": False, "valores": default_valores, "error_acceso": True, "error": err_msg}
 
 
-def actualizar_valoracion_actitudinal(id_trabajador, actitud, valor, nombre_trabajador=None, depto_trabajador=None):
+def actualizar_valoracion_actitudinal(id_trabajador, actitud, valor, nombre_trabajador=None, depto_trabajador=None, modificado_por=None):
     try:
         import gspread
         doc = abrir_documento_por_key(SPREADSHEET_VALORACION_ID)
@@ -1910,33 +2114,56 @@ def actualizar_valoracion_actitudinal(id_trabajador, actitud, valor, nombre_trab
             w = doc.worksheet(str(id_trabajador).strip())
             creada = False
         except gspread.exceptions.WorksheetNotFound:
-            # Crear la pestaña si no existe
-            w = doc.add_worksheet(title=str(id_trabajador).strip(), rows="100", cols="20")
+            # Obtener el departamento limpio para elegir la plantilla
+            dept_clean = ""
+            if depto_trabajador:
+                dept_clean = str(depto_trabajador).strip().upper()
+            else:
+                try:
+                    persona_obj = obtener_persona(id_trabajador)
+                    if persona_obj:
+                        dept_clean = str(persona_obj.get("departamento", "")).strip().upper()
+                        depto_trabajador = persona_obj.get("departamento", "")
+                except Exception:
+                    pass
+            
+            template_name = "BASE_ENCAJADORES" if "ENCAJADO" in dept_clean else "BASE"
+            try:
+                base_sheet = doc.worksheet(template_name)
+                w = doc.duplicate_sheet(
+                    source_sheet_id=base_sheet.id,
+                    new_sheet_name=str(id_trabajador).strip()
+                )
+            except Exception as ex_dup:
+                logger.warning(f"No se pudo duplicar plantilla {template_name}, creando en blanco: {ex_dup}")
+                w = doc.add_worksheet(title=str(id_trabajador).strip(), rows="100", cols="20")
             creada = True
             
         if creada:
-            # Escribir los datos del encabezado de la ficha
-            # A1: ID, B1: Nombre, E1: Depto, F1: ID
             w.update_cell(1, 1, str(id_trabajador).strip())
             if nombre_trabajador:
                 w.update_cell(1, 2, str(nombre_trabajador).strip())
             if depto_trabajador:
                 w.update_cell(1, 5, str(depto_trabajador).strip())
             w.update_cell(1, 6, str(id_trabajador).strip())
-            w.update_cell(1, 7, "5") # Días activo por defecto
+            w.update_cell(1, 7, "5")
             
-            # Escribir la estructura base de valoración actitudinal en H22 (col 8, fila 22)
-            w.update_cell(22, 8, "VALORACIÓN ACTITUDINAL")
-            w.update_cell(24, 8, "Proactividad")
-            w.update_cell(25, 8, "Autonomía")
-            w.update_cell(26, 8, "Disposición")
-            w.update_cell(27, 8, "Respeto normativo")
-            w.update_cell(28, 8, "Receptividad")
-            w.update_cell(29, 8, "Uso PDA")
-            
-            # Escribir ceros por defecto para los que no se están editando
-            for r_idx in range(24, 30):
-                w.update_cell(r_idx, 9, "0")
+            # Si se creó en blanco (fallback), escribir la estructura básica antigua
+            try:
+                val_act = w.cell(22, 8).value
+                val_act_31 = w.cell(31, 8).value
+                if val_act != "VALORACIÓN ACTITUDINAL" and val_act_31 != "VALORACIÓN ACTITUDINAL":
+                    w.update_cell(22, 8, "VALORACIÓN ACTITUDINAL")
+                    w.update_cell(24, 8, "Rigor y Calidad de Ejecución")
+                    w.update_cell(25, 8, "Receptividad al Feedback")
+                    w.update_cell(26, 8, "Iniciativa y Ritmo Operativo")
+                    w.update_cell(27, 8, "Comprensión y Comunicación (Idioma y Lectura)")
+                    w.update_cell(28, 8, "Resolución y Agilidad Numérica (Cálculo Operativo)")
+                    w.update_cell(29, 8, "Manejo Técnico de Herramientas (Terminal PDA)")
+                    for r_idx in range(24, 30):
+                        w.update_cell(r_idx, 9, "0")
+            except Exception:
+                pass
                 
         # Buscar la fila de la actitud a actualizar
         values = w.get_all_values()
@@ -1962,22 +2189,38 @@ def actualizar_valoracion_actitudinal(id_trabajador, actitud, valor, nombre_trab
                 row = values[row_idx]
                 if header_col < len(row):
                     name = str(row[header_col]).strip()
+                    # Mapeo flexible para actualizar la fila
+                    is_match = False
                     if name.lower() == actitud.lower() or actitud.lower() in name.lower() or name.lower() in actitud.lower():
+                        is_match = True
+                    elif actitud.lower() == "proactividad" and name == "Iniciativa y Ritmo Operativo":
+                        is_match = True
+                    elif actitud.lower() == "autonomía" and name == "Resolución y Agilidad Numérica (Cálculo Operativo)":
+                        is_match = True
+                    elif actitud.lower() == "disposición" and name == "Comprensión y Comunicación (Idioma y Lectura)":
+                        is_match = True
+                    elif actitud.lower() == "respeto normativo" and name == "Rigor y Calidad de Ejecución":
+                        is_match = True
+                    elif actitud.lower() == "receptividad" and name == "Receptividad al Feedback":
+                        is_match = True
+                    elif actitud.lower() == "uso pda" and name == "Manejo Técnico de Herramientas (Terminal PDA)":
+                        is_match = True
+                        
+                    if is_match:
                         w.update_cell(row_idx + 1, header_col + 2, str(valor))
                         fila_actualizada = True
                         break
                         
         if not fila_actualizada:
-            # Si por algún motivo no encontramos la celda de la actitud, la escribimos al final de la lista
             default_map = {
-                "proactividad": 24,
-                "autonomía": 25,
-                "autonomia": 25,
-                "disposición": 26,
-                "disposicion": 26,
-                "respeto normativo": 27,
-                "respeto": 27,
-                "receptividad": 28,
+                "rigor": 24,
+                "receptividad": 25,
+                "iniciativa": 26,
+                "comprensión": 27,
+                "comprension": 27,
+                "resolución": 28,
+                "resolucion": 28,
+                "manejo": 29,
                 "uso pda": 29
             }
             target_row = 24
@@ -1988,11 +2231,57 @@ def actualizar_valoracion_actitudinal(id_trabajador, actitud, valor, nombre_trab
             w.update_cell(target_row, 8, actitud)
             w.update_cell(target_row, 9, str(valor))
             
+        # Sincronizar también con los overrides
+        MAP_ACTITUD_KEYS = {
+            "Rigor y Calidad de Ejecución": "act_respeto",
+            "Receptividad al Feedback": "act_receptividad",
+            "Iniciativa y Ritmo Operativo": "act_proactividad",
+            "Comprensión y Comunicación (Idioma y Lectura)": "act_disposicion",
+            "Resolución y Agilidad Numérica (Cálculo Operativo)": "act_autonomia",
+            "Manejo Técnico de Herramientas (Terminal PDA)": "act_uso_pda"
+        }
+        
+        override_key = None
+        for k_new, k_old in MAP_ACTITUD_KEYS.items():
+            if actitud.lower() in k_new.lower() or k_new.lower() in actitud.lower() or (actitud.lower() == "proactividad" and "iniciativa" in k_new.lower()) or (actitud.lower() == "autonomía" and "resolución" in k_new.lower()) or (actitud.lower() == "disposición" and "comprensión" in k_new.lower()) or (actitud.lower() == "respeto normativo" and "rigor" in k_new.lower()) or (actitud.lower() == "receptividad" and "receptividad" in k_new.lower()) or (actitud.lower() == "uso pda" and "manejo" in k_new.lower()):
+                override_key = k_old
+                break
+                
+        if override_key:
+            guardar_override_async(id_trabajador, override_key, valor)
+            
+        # Registrar en la hoja de HISTORIAL_360 de forma asíncrona o directa
+        try:
+            from datetime import datetime
+            try:
+                import pytz
+                madrid_tz = pytz.timezone("Europe/Madrid")
+                fecha_str = datetime.now(madrid_tz).strftime("%Y-%m-%d %H:%M:%S")
+            except ImportError:
+                fecha_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            try:
+                hoja_hist = doc.worksheet("HISTORIAL_360")
+            except Exception:
+                hoja_hist = doc.add_worksheet(title="HISTORIAL_360", rows="2000", cols="6")
+                hoja_hist.append_row(["Fecha", "ID Trabajador", "Trabajador", "Usuario", "Indicador", "Valor Nuevo"])
+                
+            hoja_hist.append_row([
+                fecha_str,
+                str(id_trabajador).strip(),
+                str(nombre_trabajador or "").strip(),
+                str(modificado_por or "Desconocido").strip(),
+                str(actitud).strip(),
+                str(valor)
+            ])
+        except Exception as ex_log:
+            logger.error(f"Error al escribir en HISTORIAL_360: {ex_log}")
+            
         return {"ok": True}
         
     except Exception as e:
         logger.error(f"Error al guardar valoración actitudinal para {id_trabajador} ({actitud}={valor}): {e}")
-        err_msg = str(e) if str(e) else "Error de permisos. Comparta la hoja de cálculo con sgf-enterprise@my-project-81923-501308.iam.gserviceaccount.com como Editor."
+        err_msg = str(e) if str(e) else "Error de permisos."
         return {"ok": False, "error": err_msg}
 
 
@@ -2181,6 +2470,13 @@ def registrar_formacion_trabajador(datos: dict):
 
 
 def obtener_horas_formacion_por_trabajador():
+    global _horas_formacion_cache, _horas_formacion_timestamp
+    ahora = time.time()
+    
+    with _horas_formacion_lock:
+        if _horas_formacion_cache is not None and (ahora - _horas_formacion_timestamp) < HORAS_FORMACION_CACHE_TTL:
+            return _horas_formacion_cache
+            
     try:
         from app.services.google_service import abrir_documento_por_key
         doc = abrir_documento_por_key(SPREADSHEET_SACADORES_ID)
@@ -2271,9 +2567,15 @@ def obtener_horas_formacion_por_trabajador():
                 "aula": f"{a_m // 60}:{a_m % 60:02d}",
                 "camara": f"{c_m // 60}:{c_m % 60:02d}"
             }
+        with _horas_formacion_lock:
+            _horas_formacion_cache = res
+            _horas_formacion_timestamp = ahora
         return res
     except Exception as e:
         logger.error(f"Error en obtener_horas_formacion_por_trabajador: {e}")
+        with _horas_formacion_lock:
+            if _horas_formacion_cache is not None:
+                return _horas_formacion_cache
         return {}
 
 
@@ -2283,11 +2585,33 @@ def obtener_horas_formacion_por_trabajador():
 
 _last_salix_sync_time = 0.0
 _salix_sync_lock = threading.Lock()
+SYNC_TIME_FILE = os.path.join("app", "data", "last_salix_sync.txt")
+
+def _load_last_sync_time():
+    try:
+        if os.path.exists(SYNC_TIME_FILE):
+            with open(SYNC_TIME_FILE, "r") as f:
+                return float(f.read().strip())
+    except Exception:
+        pass
+    return 0.0
+
+def _save_last_sync_time(t):
+    try:
+        os.makedirs(os.path.dirname(SYNC_TIME_FILE), exist_ok=True)
+        with open(SYNC_TIME_FILE, "w") as f:
+            f.write(str(t))
+    except Exception:
+        pass
 
 def sincronizar_bajas_salix(forzar_refresco=False):
     global _last_salix_sync_time
     ahora = time.time()
     
+    # Cargar el tiempo de última sincronización si aún no está en memoria
+    if _last_salix_sync_time == 0.0:
+        _last_salix_sync_time = _load_last_sync_time()
+        
     # Solo ejecutar una vez cada 24 horas (86400 segundos) a menos que se fuerce
     if not forzar_refresco and (ahora - _last_salix_sync_time) < 86400:
         logger.info("Sync de bajas no requerido (ejecutado en las últimas 24h)")
@@ -2301,7 +2625,7 @@ def sincronizar_bajas_salix(forzar_refresco=False):
         try:
             logger.info("Iniciando revisión diaria de bajas en Salix...")
             
-            filas = obtener_filas_maestro_personas(forzar_refresco=True)
+            filas = obtener_filas_maestro_personas(forzar_refresco=forzar_refresco)
             from datetime import date, datetime
             hoy = date.today()
             active_workers = []
@@ -2408,6 +2732,7 @@ def sincronizar_bajas_salix(forzar_refresco=False):
                             actualizar_campo_persona({"id": w_id, "campo": "departamento", "valor": dept_salix})
             
             _last_salix_sync_time = ahora
+            _save_last_sync_time(ahora)
             return {
                 "ok": True, 
                 "msg": f"Sincronización completada. Procesados {len(active_workers)} trabajadores. Bajas detectadas y procesadas: {len(bajas_detectadas)}.",
@@ -2503,13 +2828,29 @@ def obtener_timeline_usuarios_restringidos(limit=15):
         def limpiar_id(val):
             return str(val).strip().split('.')[0]
             
+        try:
+            from app.services.usuario_service import obtener_usuarios
+            usuarios = obtener_usuarios()
+            restringidos_usernames = {"daniel", "norman", "dodo", "andres", "fran"}
+            restringidos_nombres = {
+                str(u.get("nombre", "")).strip().lower()
+                for u in usuarios
+                if str(u.get("usuario", "")).strip().lower() in restringidos_usernames
+            }
+        except Exception as err_users:
+            logger.error(f"Error loading restricted users: {err_users}")
+            restringidos_usernames = {"daniel", "norman", "dodo", "andres", "fran"}
+            restringidos_nombres = {"daniel zapata", "usuario dodo", "usuario de solo lectura (fran)"}
+
+        restringidos_validos = restringidos_usernames.union(restringidos_nombres)
+
         observaciones = []
         for r in registros:
             autor = str(r.get("AUTOR_ID", "")).strip().lower()
             creador = str(r.get("CREADO_POR", "")).strip().lower()
             
-            # Filtrar por daniel, norman, dodo
-            if autor not in ("daniel", "norman", "dodo") and creador not in ("daniel", "norman", "dodo"):
+            # Filtrar por daniel, norman, dodo, andres, fran
+            if autor not in restringidos_validos and creador not in restringidos_validos:
                 continue
                 
             id_persona = limpiar_id(r.get("ID_PERSONA", ""))
@@ -2534,4 +2875,59 @@ def obtener_timeline_usuarios_restringidos(limit=15):
     except Exception as e:
         logger.error(f"Error obteniendo timeline de usuarios restringidos: {e}")
         return []
+
+
+def obtener_timeline_360(id_trabajador):
+    try:
+        import gspread
+        doc = abrir_documento_por_key(SPREADSHEET_VALORACION_ID)
+        try:
+            hoja = doc.worksheet("HISTORIAL_360")
+        except Exception:
+            return []
+            
+        rows = hoja.get_all_records()
+        timeline = []
+        for r in rows:
+            w_id = str(r.get("ID Trabajador", "")).strip()
+            if w_id == str(id_trabajador).strip():
+                timeline.append({
+                    "fecha": r.get("Fecha", ""),
+                    "usuario": r.get("Usuario", ""),
+                    "indicador": r.get("Indicador", ""),
+                    "valor": r.get("Valor Nuevo", "")
+                })
+        timeline.reverse()
+        return timeline
+    except Exception as e:
+        logger.error(f"Error al obtener timeline 360 para {id_trabajador}: {e}")
+        return []
+
+
+def obtener_limites_salix(id_trabajador):
+    try:
+        from app.services.grafana.client import GrafanaClient
+        from app.services.grafana.config import GRAFANA_URL
+        client = GrafanaClient(base_url=GRAFANA_URL)
+        w_id = int(str(id_trabajador).strip())
+        sql = f"SELECT linesLimit, volumeLimit FROM operator WHERE workerFk = {w_id}"
+        payload = [{
+            'refId': 'A',
+            'datasource': {'uid': '000000003'},
+            'rawSql': sql,
+            'format': 'table'
+        }]
+        res = client.query_datasource(payload)
+        frames = res.get("results", {}).get("A", {}).get("frames", [])
+        if frames:
+            data = frames[0].get("data", {})
+            values = data.get("values", [])
+            if values and len(values) >= 2:
+                # Obtener primer valor de linesLimit y volumeLimit
+                lines_limit = int(values[0][0]) if len(values[0]) > 0 else 0
+                volume_limit = float(values[1][0]) if len(values[1]) > 0 else 0.0
+                return {"lines_limit": lines_limit, "volume_limit": volume_limit}
+    except Exception as e:
+        logger.error(f"Error al obtener limites Salix para {id_trabajador}: {e}")
+    return {"lines_limit": 0, "volume_limit": 0.0}
 

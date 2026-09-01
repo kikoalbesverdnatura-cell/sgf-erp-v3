@@ -448,39 +448,45 @@
 
     <!-- VALORACIÓN ACTITUDINAL -->
     <div class="panel">
-        <h2>🧠 Valoración Actitudinal y Conducta</h2>
+        <h2>🧠 Valoración Actitudinal y Conducta (360)</h2>
         <div class="chart-grid">
             <table style="margin-top: 0; font-size: 0.9em;">
                 <thead>
                     <tr style="background-color: #f7fafc;">
                         <th style="text-align: left; padding: 10px;">Indicador Actitudinal</th>
-                        <th style="width: 100px;">Puntuación</th>
+                        <th style="width: 100px; text-align: center;">Puntuación</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Proactividad</td>
-                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_proactividad or '-' }} / 5</td>
+                    <tr style="background-color: #f8fafc; font-weight: bold;">
+                        <td style="text-align: left; padding: 10px;" colspan="2">Bloque 1: Evaluación Actitudinal</td>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Autonomía</td>
-                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_autonomia or '-' }} / 5</td>
+                        <td style="text-align: left; padding: 10px; padding-left: 20px; border-bottom: 1px solid #edf2f7;">Rigor y Calidad de Ejecución</td>
+                        <td style="font-weight: bold; font-size: 1.1em; text-align: center; border-bottom: 1px solid #edf2f7;">{{ persona.act_respeto or '-' }} / 3</td>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Disposición</td>
-                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_disposicion or '-' }} / 5</td>
+                        <td style="text-align: left; padding: 10px; padding-left: 20px; border-bottom: 1px solid #edf2f7;">Receptividad al Feedback</td>
+                        <td style="font-weight: bold; font-size: 1.1em; text-align: center; border-bottom: 1px solid #edf2f7;">{{ persona.act_receptividad or '-' }} / 3</td>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Respeto Normativo</td>
-                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_respeto or '-' }} / 5</td>
+                        <td style="text-align: left; padding: 10px; padding-left: 20px; border-bottom: 1px solid #edf2f7;">Iniciativa y Ritmo Operativo</td>
+                        <td style="font-weight: bold; font-size: 1.1em; text-align: center; border-bottom: 1px solid #edf2f7;">{{ persona.act_proactividad or '-' }} / 3</td>
+                    </tr>
+                    <tr style="background-color: #f8fafc; font-weight: bold;">
+                        <td style="text-align: left; padding: 10px;" colspan="2">Bloque 2: Evaluación Aptitudinal</td>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Receptividad</td>
-                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_receptividad or '-' }} / 5</td>
+                        <td style="text-align: left; padding: 10px; padding-left: 20px; border-bottom: 1px solid #edf2f7;">Comprensión y Comunicación (Idioma/Lectura)</td>
+                        <td style="font-weight: bold; font-size: 1.1em; text-align: center; border-bottom: 1px solid #edf2f7;">{{ persona.act_disposicion or '-' }} / 3</td>
                     </tr>
                     <tr>
-                        <td style="text-align: left; padding: 10px; border-bottom: 1px solid #edf2f7;">Uso PDA</td>
-                        <td style="font-weight: bold; font-size: 1.1em;">{{ persona.act_uso_pda or '-' }} / 5</td>
+                        <td style="text-align: left; padding: 10px; padding-left: 20px; border-bottom: 1px solid #edf2f7;">Resolución y Agilidad Numérica (Cálculo)</td>
+                        <td style="font-weight: bold; font-size: 1.1em; text-align: center; border-bottom: 1px solid #edf2f7;">{{ persona.act_autonomia or '-' }} / 3</td>
+                    </tr>
+                    <tr>
+                        <td style="text-align: left; padding: 10px; padding-left: 20px; border-bottom: 1px solid #edf2f7;">Manejo Técnico de Herramientas (PDA)</td>
+                        <td style="font-weight: bold; font-size: 1.1em; text-align: center; border-bottom: 1px solid #edf2f7;">{{ persona.act_uso_pda or '-' }} / 3</td>
                     </tr>
                 </tbody>
             </table>
@@ -727,18 +733,25 @@
     // Renderizar gráfico de radar (Actitud)
     const ctxRadar = document.getElementById('chart-radar-actitud').getContext('2d');
     const actData = [
-        {{ persona.act_proactividad or 0 }},
-        {{ persona.act_autonomia or 0 }},
-        {{ persona.act_disposicion or 0 }},
         {{ persona.act_respeto or 0 }},
         {{ persona.act_receptividad or 0 }},
+        {{ persona.act_proactividad or 0 }},
+        {{ persona.act_disposicion or 0 }},
+        {{ persona.act_autonomia or 0 }},
         {{ persona.act_uso_pda or 0 }}
     ];
     
     new Chart(ctxRadar, {
         type: 'radar',
         data: {
-            labels: ['Proactividad', 'Autonomía', 'Disposición', 'Respeto Normativo', 'Receptividad', 'Uso PDA'],
+            labels: [
+                'Rigor y Calidad',
+                'Receptividad Feedback',
+                'Iniciativa y Ritmo',
+                'Comprensión/Idioma',
+                'Cálculo Operativo',
+                'PDA'
+            ],
             datasets: [{
                 label: 'Puntuación',
                 data: actData,
@@ -758,9 +771,9 @@
                 r: {
                     angleLines: { display: true },
                     suggestedMin: 0,
-                    suggestedMax: 5,
+                    suggestedMax: 3,
                     ticks: { stepSize: 1, font: { size: 9 } },
-                    pointLabels: { font: { size: 10, weight: 'bold' } }
+                    pointLabels: { font: { size: 9, weight: 'bold' } }
                 }
             },
             plugins: {

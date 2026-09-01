@@ -63,8 +63,18 @@ def obtener_dashboard(forzar_refresco=False):
     except Exception:
         pass
 
-    from app.services.persona_service import obtener_filas_maestro_personas, obtener_filas_simpl, auto_agregar_incorporacion_simpl, obtener_overrides, obtener_ultimas_observaciones_globales, obtener_timeline_usuarios_restringidos
-    filas = obtener_filas_maestro_personas()
+    from app.services.persona_service import (
+        obtener_filas_maestro_personas,
+        obtener_filas_simpl,
+        auto_agregar_incorporacion_simpl,
+        obtener_overrides,
+        obtener_ultimas_observaciones_globales,
+        obtener_timeline_usuarios_restringidos,
+        invalidar_todas_las_caches
+    )
+    if forzar_refresco:
+        invalidar_todas_las_caches()
+    filas = obtener_filas_maestro_personas(forzar_refresco=forzar_refresco)
     overrides = obtener_overrides()
 
     personas = []
@@ -274,6 +284,8 @@ def normalizar_persona(p, overrides=None):
     worker_overrides = overrides.get(w_id, {})
     
     dept = worker_overrides.get("departamento", str(p.get("DEPARTAMENTO_ORIGEN", "")).strip())
+    if isinstance(dept, str):
+        dept = dept.replace("TALLLER", "TALLER")
 
     hora_entrada = worker_overrides.get("hora_entrada", "08:00")
 
@@ -437,6 +449,7 @@ def es_departamento_whatsapp_valido(depto):
     dep = normalizar_texto(depto)
     import unicodedata
     dep_clean = "".join(c for c in unicodedata.normalize('NFD', dep) if unicodedata.category(c) != 'Mn')
+    dep_clean = dep_clean.replace("TALLLER", "TALLER")
     # Coincidencia exacta para evitar "SACADO H - HALCONES"
     return dep_clean in ("SACADO H", "SACADOR H", "TALLER NATURAL")
 
@@ -1166,14 +1179,49 @@ def obtener_fichajes_individuales(id_trabajador, cookies=None):
         except Exception:
             expected_t = time(8, 0)
             
+        # Resolve the worker's Grafana ID for robust comparison and SQL filtering
+        from app.services.grafana.repository import GrafanaRepository
+        from app.services.grafana.worker import WorkerService
+        
         client = GrafanaClient(base_url=GRAFANA_URL, cookies=cookies)
-        service = DashboardService(client)
+        repo = GrafanaRepository()
+        worker_service = WorkerService(repository=repo)
+        resolved_grafana_id = str(worker_service._resolve_worker_fk(id_trabajador, persona.get("nombre"), cookies)).strip()
         
-        dashboard_uid = "98ef54c2-0ab6-473e-bff7-8d3682eab132"
-        panel_id = 1
+        if not resolved_grafana_id:
+            return {"ok": True, "fichajes": []}
+
+        sql = f"""
+        SELECT DISTINCT 
+          wt.userfk,
+          CONCAT_WS(" ", w.firstname, w.lastname) AS trabajador,
+          '' AS department_name,
+          DATE_FORMAT(CONVERT_TZ(wt.timed, @@session.time_zone, '+02:00'), '%d/%m/%Y') AS fecha,
+          DATE_FORMAT(CONVERT_TZ(wt.timed, @@session.time_zone, '+02:00'), '%H:%i:%s') AS hora,
+          CASE 
+            WHEN wt.direction = 'IN' THEN 'Entrada'
+            WHEN wt.direction = 'OUT' THEN 'Salida'
+            WHEN wt.direction = 'MIDDLE' THEN 'Descanso'
+            ELSE wt.direction
+          END AS Fichaje,
+          wt.order AS orden
+        FROM workerTimeControl wt
+        JOIN worker w ON w.id = wt.userfk
+        WHERE wt.userfk = {resolved_grafana_id}
+          AND wt.timed >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY wt.timed;
+        """
         
-        queries = service.get_panel_queries(dashboard_uid, panel_id)
-        result = client.query_datasource(queries, from_time="now-30d", to_time="now")
+        queries = [
+            {
+                "refId": "A",
+                "datasource": {"uid": "000000003"},
+                "rawSql": sql,
+                "format": "table"
+            }
+        ]
+        
+        result = client.query_datasource(queries)
         
         rows = []
         if "results" in result:
@@ -1187,14 +1235,6 @@ def obtener_fichajes_individuales(id_trabajador, cookies=None):
                     if values:
                         rows = [dict(zip(names, row)) for row in zip(*values)]
                         
-        # Resolve the worker's Grafana ID for robust comparison
-        from app.services.grafana.repository import GrafanaRepository
-        from app.services.grafana.worker import WorkerService
-        
-        repo = GrafanaRepository()
-        worker_service = WorkerService(repository=repo)
-        resolved_grafana_id = str(worker_service._resolve_worker_fk(id_trabajador, persona.get("nombre"), cookies)).strip()
-
         # Procesar los fichajes para este trabajador
         fichajes_por_dia = {}
         for r in rows:

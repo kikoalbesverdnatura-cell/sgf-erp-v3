@@ -54,12 +54,12 @@ def generar_resumen_trabajador(persona_id: str, cookies: dict = None) -> str:
         valores_reales = {}
 
     val_act = {
-        "Proactividad": valores_reales.get("Proactividad") if valores_reales.get("Proactividad") is not None else persona.get("act_proactividad", 0),
-        "Autonomía": valores_reales.get("Autonomía") if valores_reales.get("Autonomía") is not None else persona.get("act_autonomia", 0),
-        "Disposición": valores_reales.get("Disposición") if valores_reales.get("Disposición") is not None else persona.get("act_disposicion", 0),
-        "Respeto Normativo": valores_reales.get("Respeto normativo") if valores_reales.get("Respeto normativo") is not None else persona.get("act_respeto", 0),
-        "Receptividad": valores_reales.get("Receptividad") if valores_reales.get("Receptividad") is not None else persona.get("act_receptividad", 0),
-        "Uso PDA": valores_reales.get("Uso PDA") if valores_reales.get("Uso PDA") is not None else persona.get("act_uso_pda", 0)
+        "Rigor y Calidad de Ejecución": valores_reales.get("Rigor y Calidad de Ejecución") if valores_reales.get("Rigor y Calidad de Ejecución") is not None else persona.get("act_respeto", 0),
+        "Receptividad al Feedback": valores_reales.get("Receptividad al Feedback") if valores_reales.get("Receptividad al Feedback") is not None else persona.get("act_receptividad", 0),
+        "Iniciativa y Ritmo Operativo": valores_reales.get("Iniciativa y Ritmo Operativo") if valores_reales.get("Iniciativa y Ritmo Operativo") is not None else persona.get("act_proactividad", 0),
+        "Comprensión y Comunicación (Idioma y Lectura)": valores_reales.get("Comprensión y Comunicación (Idioma y Lectura)") if valores_reales.get("Comprensión y Comunicación (Idioma y Lectura)") is not None else persona.get("act_disposicion", 0),
+        "Resolución y Agilidad Numérica (Cálculo Operativo)": valores_reales.get("Resolución y Agilidad Numérica (Cálculo Operativo)") if valores_reales.get("Resolución y Agilidad Numérica (Cálculo Operativo)") is not None else persona.get("act_autonomia", 0),
+        "Manejo Técnico de Herramientas (Terminal PDA)": valores_reales.get("Manejo Técnico de Herramientas (Terminal PDA)") if valores_reales.get("Manejo Técnico de Herramientas (Terminal PDA)") is not None else persona.get("act_uso_pda", 0)
     }
     
     # Formatear observaciones
@@ -139,13 +139,13 @@ Métricas de Rendimiento y Productividad:
 {grafana_summary}
 {fichajes_summary}
 
-Valoración Actitudinal (Calificaciones de 1 a 5 del tutor):
-- Proactividad: {val_act['Proactividad']}
-- Autonomía: {val_act['Autonomía']}
-- Disposición: {val_act['Disposición']}
-- Respeto Normativo: {val_act['Respeto Normativo']}
-- Receptividad: {val_act['Receptividad']}
-- Uso PDA: {val_act['Uso PDA']}
+Valoración Actitudinal (Calificaciones de 1 a 3 del tutor):
+- Rigor y Calidad de Ejecución: {val_act['Rigor y Calidad de Ejecución']}
+- Receptividad al Feedback: {val_act['Receptividad al Feedback']}
+- Iniciativa y Ritmo Operativo: {val_act['Iniciativa y Ritmo Operativo']}
+- Comprensión y Comunicación (Idioma y Lectura): {val_act['Comprensión y Comunicación (Idioma y Lectura)']}
+- Resolución y Agilidad Numérica (Cálculo Operativo): {val_act['Resolución y Agilidad Numérica (Cálculo Operativo)']}
+- Manejo Técnico de Herramientas (Terminal PDA): {val_act['Manejo Técnico de Herramientas (Terminal PDA)']}
 
 Observaciones Históricas en el Expediente:
 {obs_str if obs_str.strip() else "- No hay observaciones en el expediente."}
@@ -154,32 +154,28 @@ Observaciones Históricas en el Expediente:
 Debes redactar el informe estructurado EXACTAMENTE de la siguiente forma (sin agregar títulos extras, ni usar marcadores Markdown de encabezados grandes como #, ##, ###. Usa sólo las negritas que se especifican a continuación):
 
 ESTADO GENERAL DEL PERIODO DE PRUEBA
-⚠️ Conclusión: Riesgo [Bajo/Medio/Alto] (breve frase descriptiva de 4-7 palabras)
-[Párrafo único de 4-6 líneas: Resumen ejecutivo del estado del trabajador. Analiza los días transcurridos de prueba, si ha alcanzado el objetivo de 80 l/h y su velocidad media actual, indicando el porcentaje de desviación o logro. Menciona picos de productividad si los hay, desviaciones significativas en la puntualidad de los fichajes si las hay, y una recomendación final de continuidad o propuesta de reorientación.]
+⚠️ Conclusión: Riesgo [Bajo/Medio/Alto] | Nota Global: [Nota]/10 (breve frase descriptiva de 4-7 palabras)
+[Párrafo único de 4-6 líneas: Resumen ejecutivo del estado del trabajador. Menciona SIEMPRE de forma explícita el nombre completo del trabajador ({persona.get('nombre', 'Desconocido')}) y su ID ({persona.get('id', '')}) al inicio del párrafo (ej: "El trabajador {persona.get('nombre', 'Desconocido')} (ID: {persona.get('id', '')}) presenta..."). Analiza su desempeño general de forma objetiva, evaluando la velocidad, la precisión, los fichajes y su actitud. Justifica la nota asignada sobre 10 de manera realista: si tiene buena velocidad, pocos errores y buena actitud, una nota alta (8-10); si tiene fallos graves, impuntualidad o mala actitud, una nota baja (1-4).]
 
-1. Progreso de Velocidad (Objetivo: 80 l/h)
-🚀 Velocidad Actual: [Velocidad Media] l/h ([Porcentaje de Productividad Media vs 80]%)
-• Situación actual: [Describir velocidad media acumulada y el porcentaje de aprovechamiento real. Mencionar la velocidad máxima puntual y en qué fecha ocurrió.]
-• Evolución: [Describir la estabilidad diaria, si ha superado la meta en jornadas específicas, y la tendencia o valor del último turno reportado.]
-• Reto: [Especificar la brecha o meta necesaria para consolidar el estándar mínimo exigido de forma estable.]
+GRUPO 1: RENDIMIENTO Y PRODUCCIÓN
+• Velocidad de Sacado: [Describir la velocidad media acumulada actual y su aprovechamiento frente al objetivo de 80 l/h. Indicar la tendencia general diaria y si ha superado el estándar en turnos específicos.]
+• Calidad y Tasa de Errores: [Detallar la tasa de error medio actual, la cantidad de incidencias cometidas y si supera o se mantiene dentro del límite de calidad del 1.2%.]
+• Productividad y Volumen: [Mencionar el volumen total de líneas procesadas y horas efectivas reportadas en el periodo.]
 
-2. Calidad y Precisión (Objetivo: Minimizar errores)
-🎯 Tasa Error: [Tasa Error Medio]%
-• Situación actual: [Indicar cantidad total de errores y tasa de error real, comparándolo con el margen de tolerancia de 1.2%.]
-• Puntos de atención: [Mencionar picos de imprecisión en turnos específicos, días concretos o patrones.]
-• Reto: [Especificar la meta de reducción de errores y qué atención se requiere.]
-
-3. Valoración Actitudinal
-[Párrafo único: Redacta en forma fluida y continua una valoración interpretativa de las notas del tutor. Menciona explícitamente las fortalezas en las que destaca indicando su nota entre paréntesis, ej: Respeto Normativo (4), y los puntos de mejora o debilidades con su nota, ej: Receptividad (2).]
+GRUPO 2: COMPETENCIAS, CONDUCTA Y SEGUIMIENTO
+• Conducta y Competencias (Evaluación 360): [Analizar las notas actitudinales del tutor. Destacar fortalezas (aquellas puntuadas con 2 o 3, como Rigor, Receptividad, etc.) y áreas de mejora (aquellas puntuadas con 1).]
+• Puntualidad y Fichajes: [Mencionar si hay impuntualidad, retrasos o desviaciones en la entrada/salida a partir del historial de fichajes proporcionado.]
+• Formación y Seguimiento: [Resumir la formación teórica/práctica recibida, comentarios/observaciones en el expediente e intervenciones registradas.]
 
 # REGLAS CRÍTICAS
 - Utiliza únicamente los datos proporcionados.
-- Respeta de forma exacta los títulos, saltos de línea, viñetas de puntos (•) y emojis especificados.
+- Menciona SIEMPRE el nombre del trabajador ({persona.get('nombre', 'Desconocido')}) en el informe.
+- Respeta de forma exacta los títulos de sección en mayúsculas, saltos de línea, viñetas de puntos (•) y emojis especificados.
 - No uses negrita para las viñetas ni texto extra. Sigue el estilo del ejemplo al pie de la letra.
 """
     
     # Generar contenido con Gemini
-    model = genai.GenerativeModel("gemini-3.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
     summary = response.text.strip()
     

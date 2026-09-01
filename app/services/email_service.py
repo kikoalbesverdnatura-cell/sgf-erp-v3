@@ -70,16 +70,11 @@ def formatear_resumen_analitico_email(text: str, persona: Dict[str, Any], grafan
         
     lines = text.split("\n")
     
-    general_state_header = ""
+    html = ""
     conclusion_header = ""
     conclusion_paragraphs = []
-    speed_header = ""
-    speed_lines = []
-    quality_header = ""
-    quality_lines = []
-    attitude_header = ""
-    attitude_lines = []
-    
+    grupo1_lines = []
+    grupo2_lines = []
     current_section = "general"
     
     for line in lines:
@@ -87,61 +82,31 @@ def formatear_resumen_analitico_email(text: str, persona: Dict[str, Any], grafan
         if not trimmed:
             continue
             
-        # Omitir líneas redundantes de Empleado y Tiempo transcurrido
-        if "Empleado:" in trimmed or "Tiempo transcurrido:" in trimmed:
+        lower = trimmed.lower()
+        if "estado general del periodo de prueba" in lower:
+            current_section = "general"
+            continue
+        elif "grupo 1:" in lower or ("grupo 1" in lower and "rendimiento" in lower):
+            current_section = "g1"
+            continue
+        elif "grupo 2:" in lower or ("grupo 2" in lower and "competencia" in lower):
+            current_section = "g2"
             continue
             
-        # Encabezados principales
-        if trimmed.startswith("**") and trimmed.endswith("**"):
-            header_text = trimmed.replace("**", "").strip()
-            lower = header_text.lower()
+        if current_section == "general":
+            if "⚠️" in trimmed or "conclusión:" in lower or "conclusion:" in lower:
+                conclusion_header = trimmed
+            else:
+                conclusion_paragraphs.append(trimmed)
+        elif current_section == "g1":
+            grupo1_lines.append(trimmed)
+        elif current_section == "g2":
+            grupo2_lines.append(trimmed)
             
-            if "estado general" in lower:
-                general_state_header = header_text
-                current_section = "general"
-            elif "conclusión" in lower or "conclusion" in lower:
-                conclusion_header = header_text
-                current_section = "conclusion"
-            elif "1." in lower or "velocidad" in lower:
-                speed_header = header_text
-                current_section = "speed"
-            elif "2." in lower or "calidad" in lower:
-                quality_header = header_text
-                current_section = "quality"
-            elif "3." in lower or "actitudinal" in lower or "conducta" in lower:
-                attitude_header = header_text
-                current_section = "attitude"
-            else:
-                if current_section == "conclusion":
-                    conclusion_paragraphs.append(line)
-                elif current_section == "speed":
-                    speed_lines.append(line)
-                elif current_section == "quality":
-                    quality_lines.append(line)
-                elif current_section == "attitude":
-                    attitude_lines.append(line)
-                else:
-                    general_state_header = header_text
-        else:
-            if current_section == "conclusion":
-                conclusion_paragraphs.append(line)
-            elif current_section == "speed":
-                speed_lines.append(line)
-            elif current_section == "quality":
-                quality_lines.append(line)
-            elif current_section == "attitude":
-                attitude_lines.append(line)
-            else:
-                if "estado general" in trimmed.lower():
-                    general_state_header = trimmed
-                    
-    html = ""
+    # 1. Cabecera principal
+    html += '<h4 style="font-size: 1.1em; font-weight: 800; color: #2b6cb0; margin-top: 5px; margin-bottom: 8px; text-transform: uppercase; font-family: inherit;">ESTADO GENERAL DEL PERIODO DE PRUEBA</h4>'
     
-    # 1. Estado General
-    g_header = general_state_header or "ESTADO GENERAL DEL PERIODO DE PRUEBA"
-    html += f'<h4 style="font-size: 1.1em; font-weight: 800; color: #2b6cb0; margin-top: 10px; margin-bottom: 8px; text-transform: uppercase; font-family: inherit;">{g_header}</h4>'
-    
-    # 2. Recuadro de Conclusión
+    # 2. Recuadro de Conclusión y Nota
     if conclusion_header:
         color = "#b7791f"  # amarillo/naranja por defecto
         bg_color = "#fefcbf"
@@ -157,91 +122,98 @@ def formatear_resumen_analitico_email(text: str, persona: Dict[str, Any], grafan
             bg_color = "#f0fff4"
             border_color = "#9ae6b4"
             
+        import re
+        nota_match = re.search(r'nota\s+global:\s*([\d.,]+)\s*\/\s*10', conclusion_header, re.IGNORECASE)
+        nota_html = ""
+        if nota_match and nota_match.group(1):
+            nota = nota_match.group(1)
+            badge_bg = "#edf2f7"
+            badge_color = "#4a5568"
+            try:
+                nota_num = float(nota.replace(",", "."))
+                if nota_num >= 8:
+                    badge_bg = "#c6f6d5"
+                    badge_color = "#22543d"
+                elif nota_num >= 5:
+                    badge_bg = "#feebc8"
+                    badge_color = "#744210"
+                else:
+                    badge_bg = "#fed7d7"
+                    badge_color = "#742a2a"
+            except ValueError:
+                pass
+            nota_html = f'<span style="background: {badge_bg}; color: {badge_color}; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 0.85em; display: inline-block; vertical-align: middle;">Nota: {nota}/10</span>'
+            
+        clean_title = re.sub(r'\s*\|\s*nota\s+global:\s*[\d.,]+\s*\/\s*10', '', conclusion_header, flags=re.IGNORECASE).strip()
+        clean_title = clean_title.replace("⚠️", "").replace("**", "").strip()
+            
         html += f"""
-        <div style="background: {bg_color}; border: 1px solid {border_color}; border-left: 5px solid {color}; padding: 14px 16px; border-radius: 8px; margin-top: 12px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); font-family: inherit;">
-            <h5 style="margin: 0 0 8px 0; font-size: 1.05em; font-weight: 800; color: {color}; font-family: inherit; display: flex; align-items: center; gap: 6px;">
-                ⚠️ {conclusion_header}
-            </h5>
+        <div style="background: {bg_color}; border: 1px solid {border_color}; border-left: 5px solid {color}; padding: 14px 16px; border-radius: 8px; margin-top: 10px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); font-family: inherit;">
+            <div style="display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 12px; width: 100%; border-bottom: 1px solid {border_color}; padding-bottom: 6px; margin-bottom: 8px;">
+                <h5 style="margin: 0; font-size: 1.05em; font-weight: 800; color: {color}; font-family: inherit; display: inline-block; vertical-align: middle;">
+                    ⚠️ {clean_title}
+                </h5>
+                {nota_html}
+            </div>
         """
         for line in conclusion_paragraphs:
-            # Reemplazar **negritas**
-            import re
-            clean = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', line.strip())
+            clean = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', line)
             html += f'<p style="margin: 0; font-size: 0.95em; color: #4a5568; line-height: 1.5; text-align: justify; font-family: inherit;">{clean}</p>'
-            
         html += "</div>"
         
     # Helper to render lines
-    def render_section_lines(sec_lines):
+    def render_grupo_lines(sec_lines):
         import re
         s_html = ""
         for line in sec_lines:
             trimmed_line = line.strip()
-            if trimmed_line.startswith("*") or trimmed_line.startswith("-"):
+            if trimmed_line.startswith("*") or trimmed_line.startswith("•") or trimmed_line.startswith("-"):
                 clean = trimmed_line[1:].strip()
                 clean = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', clean)
+                
+                if ":" in clean:
+                    parts = clean.split(":", 1)
+                    label = parts[0].strip()
+                    desc = parts[1].strip()
+                    clean = f"<strong>{label}:</strong> {desc}"
+                    
                 s_html += f"""
-                <div style="margin-left: 12px; margin-bottom: 5px; font-size: 0.95em; color: #4a5568; line-height: 1.45; display: flex; align-items: flex-start; gap: 6px;">
-                    <span style="color:#173D2D; margin-right: 6px;">•</span>
+                <div style="margin-left: 5px; margin-bottom: 8px; font-size: 0.92em; color: #4a5568; line-height: 1.45; display: flex; align-items: flex-start; gap: 6px;">
+                    <span style="color:#2b6cb0; font-size: 1.1em; line-height: 1.1;">•</span>
                     <span>{clean}</span>
                 </div>
                 """
             else:
                 clean = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', trimmed_line)
-                s_html += f'<p style="margin-top: 6px; margin-bottom: 10px; font-size: 0.95em; color: #4a5568; line-height: 1.45; text-align: justify; font-family: inherit;">{clean}</p>'
+                s_html += f'<p style="margin-top: 6px; margin-bottom: 10px; font-size: 0.92em; color: #4a5568; line-height: 1.45; text-align: justify; font-family: inherit;">{clean}</p>'
         return s_html
 
-    # 3. Velocidad
-    if speed_header:
-        speed = "--"
-        if isinstance(grafana_data, dict) and grafana_data.get("lines_hour") is not None:
-            speed = f"{grafana_data.get('lines_hour')} l/h ({grafana_data.get('productivity_pct')}%)"
-        elif persona.get("productividad_media"):
-            speed = f"{persona.get('productividad_media')} l/h"
-            
-        badge_html = f"""
-        <div style="background: #ebf8ff; color: #2b6cb0; font-size: 0.85em; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #bee3f8; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); margin-left: 10px; vertical-align: middle;">
-            🚀 Velocidad Actual: <strong>{speed}</strong>
-        </div>
-        """
-        html += f"""
-        <div style="margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px;">
-            <h4 style="font-size: 1.02em; font-weight: 700; color: #173D2D; margin: 0; font-family: inherit; display: inline-block; vertical-align: middle;">{speed_header}</h4>
-            {badge_html}
-        </div>
-        """
-        html += render_section_lines(speed_lines)
-        
-    # 4. Calidad
-    if quality_header:
-        error = "--"
-        if isinstance(grafana_data, dict) and grafana_data.get("error_pct") is not None:
-            error = f"{grafana_data.get('error_pct')}%"
-        elif persona.get("error_medio"):
-            error = persona.get("error_medio")
-            
-        badge_html = f"""
-        <div style="background: #fff5f5; color: #c53030; font-size: 0.85em; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #fed7d7; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); margin-left: 10px; vertical-align: middle;">
-            🎯 Tasa Error: <strong>{error}</strong>
-        </div>
-        """
-        html += f"""
-        <div style="margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px;">
-            <h4 style="font-size: 1.02em; font-weight: 700; color: #173D2D; margin: 0; font-family: inherit; display: inline-block; vertical-align: middle;">{quality_header}</h4>
-            {badge_html}
-        </div>
-        """
-        html += render_section_lines(quality_lines)
-        
-    # 5. Actitud
-    if attitude_header:
-        html += f"""
-        <div style="margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px;">
-            <h4 style="font-size: 1.02em; font-weight: 700; color: #173D2D; margin: 0; font-family: inherit;">{attitude_header}</h4>
-        </div>
-        """
-        html += render_section_lines(attitude_lines)
-        
+    # Grupo 1
+    html += """
+    <div style="margin-top: 15px; margin-bottom: 15px; border: 1px solid #edf2ee; border-radius: 8px; padding: 12px; background: #fafcfa;">
+        <h4 style="font-size: 0.95em; font-weight: 800; color: #173D2D; margin-top: 0; margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; text-transform: uppercase;">
+            📊 Grupo 1: Rendimiento y Producción
+        </h4>
+    """
+    if grupo1_lines:
+        html += render_grupo_lines(grupo1_lines)
+    else:
+        html += '<p style="font-size:0.9em; color:#718096; font-style:italic; margin:0;">Sin datos de producción registrados.</p>'
+    html += "</div>"
+    
+    # Grupo 2
+    html += """
+    <div style="margin-top: 15px; margin-bottom: 15px; border: 1px solid #edf2ee; border-radius: 8px; padding: 12px; background: #fafcfa;">
+        <h4 style="font-size: 0.95em; font-weight: 800; color: #173D2D; margin-top: 0; margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; text-transform: uppercase;">
+            🛠️ Grupo 2: Competencias, Conducta y Seguimiento
+        </h4>
+    """
+    if grupo2_lines:
+        html += render_grupo_lines(grupo2_lines)
+    else:
+        html += '<p style="font-size:0.9em; color:#718096; font-style:italic; margin:0;">Sin registros de seguimiento.</p>'
+    html += "</div>"
+    
     return html
 
 def enviar_correo_revision_18_21(
@@ -313,27 +285,35 @@ def enviar_correo_revision_18_21(
             <th style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-size: 0.9em; width: 80px;">Puntuación</th>
         </tr>
         <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #edf2f7;">Proactividad</td>
-            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_proactividad") or "-"}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold; color: #1a202c;">Bloque 1: Evaluación Actitudinal</td>
+            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7;"></td>
         </tr>
         <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #edf2f7;">Autonomía</td>
-            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_autonomia") or "-"}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #edf2f7;">Disposición</td>
-            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_disposicion") or "-"}</td>
-        </tr>
-        <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #edf2f7;">Respeto Normativo</td>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; padding-left: 20px;">Rigor y Calidad de Ejecución</td>
             <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_respeto") or "-"}</td>
         </tr>
         <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #edf2f7;">Receptividad</td>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; padding-left: 20px;">Receptividad al Feedback</td>
             <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_receptividad") or "-"}</td>
         </tr>
         <tr>
-            <td style="padding: 8px; border-bottom: 1px solid #edf2f7;">Uso PDA</td>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; padding-left: 20px;">Iniciativa y Ritmo Operativo</td>
+            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_proactividad") or "-"}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold; color: #1a202c;">Bloque 2: Evaluación Aptitudinal</td>
+            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7;"></td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; padding-left: 20px;">Comprensión y Comunicación (Idioma y Lectura)</td>
+            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_disposicion") or "-"}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; padding-left: 20px;">Resolución y Agilidad Numérica (Cálculo)</td>
+            <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_autonomia") or "-"}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #edf2f7; padding-left: 20px;">Manejo Técnico de Herramientas (PDA)</td>
             <td style="text-align: center; padding: 8px; border-bottom: 1px solid #edf2f7; font-weight: bold;">{persona.get("act_uso_pda") or "-"}</td>
         </tr>
     </table>

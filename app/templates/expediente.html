@@ -105,112 +105,128 @@
                 Próximamente...
             </div>
 
-            <!-- Valoración Actitudinal y Conducta -->
-            <div class="panel" id="panel-valoracion-actitudinal" style="display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+            <!-- Valoración Actitudinal y Conducta (360) -->
+            <div class="panel" id="panel-valoracion-actitudinal" style="display: flex; flex-direction: column; gap: 15px; position: relative; overflow: hidden; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); padding: 20px;">
                 <div style="border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                     <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
-                        🧠 Valoración Actitudinal y Conducta (Indicadores)
+                        🧠 Evaluación 360 (Competencias y Conducta)
                     </h2>
                     <span id="actitud-status-msg" style="font-size: 0.85em; color: #e2a100; font-weight: 600; display: flex; align-items: center; gap: 4px;"></span>
                 </div>
                 
-                <div style="display: flex; gap: 30px; align-items: center; flex-wrap: wrap;">
-                    <!-- Tabla de valoraciones (Izquierda) -->
-                    <div style="flex: 1.2; min-width: 280px;">
-                        <table style="width: 100%; border-collapse: collapse; font-size: 0.92em;">
-                            <thead>
-                                <tr style="border-bottom: 2px solid #edf2ee; text-align: left;">
-                                    <th style="padding: 10px 6px; color: #82928a; font-weight: 700;">Indicador Actitudinal</th>
-                                    <th style="padding: 10px 6px; color: #82928a; font-weight: 700; text-align: center; width: 110px;">Puntuación</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tabla-actitudes-body">
-                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
-                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Proactividad</td>
-                                    <td style="padding: 6px 6px; text-align: center;">
-                                        <select data-actitud="Proactividad" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                                            <option value="0">-</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
-                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Autonomía</td>
-                                    <td style="padding: 6px 6px; text-align: center;">
-                                        <select data-actitud="Autonomía" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                                            <option value="0">-</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
-                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Disposición</td>
-                                    <td style="padding: 6px 6px; text-align: center;">
-                                        <select data-actitud="Disposición" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                                            <option value="0">-</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
-                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Respeto normativo</td>
-                                    <td style="padding: 6px 6px; text-align: center;">
-                                        <select data-actitud="Respeto normativo" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                                            <option value="0">-</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
-                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Receptividad</td>
-                                    <td style="padding: 6px 6px; text-align: center;">
-                                        <select data-actitud="Receptividad" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                                            <option value="0">-</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                                <tr style="border-bottom: 1px solid #f5f8f6; transition: background 0.2s;">
-                                    <td style="padding: 12px 6px; color: #2d3748; font-weight: 600;">Uso PDA</td>
-                                    <td style="padding: 6px 6px; text-align: center;">
-                                        <select data-actitud="Uso PDA" class="select-actitud" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9em; background: white; cursor: pointer; width: 80px; text-align: center; font-weight: 700; color: #1f4e3d; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#173D2D'; this.style.boxShadow='0 0 0 3px rgba(23,61,45,0.1)'" onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none'">
-                                            <option value="0">-</option>
-                                            <option value="1">1</option>
-                                            <option value="2">2</option>
-                                            <option value="3">3</option>
-                                            <option value="4">4</option>
-                                            <option value="5">5</option>
-                                        </select>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                <div style="display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap;">
+                    
+                    <!-- Columna 1 (Izquierda): Evaluación (Formulario original con botones) -->
+                    <div style="flex: 1; min-width: 290px; display: flex; flex-direction: column; gap: 12px;">
+                        
+                        <!-- Bloque 1: Conducta en Planta -->
+                        <div style="border: 1px solid #eef2f0; border-radius: 10px; padding: 12px; background: #fafcfa; display: flex; flex-direction: column; gap: 10px;">
+                            <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 0.88em; color: #1f4e3d; font-weight: 700; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                <span>📋</span> Bloque 1: Conducta en Planta
+                            </h3>
+                            
+                            <!-- Rigor y Calidad -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="font-size: 0.82em; color: #2d3748;">1. Rigor y Calidad de Ejecución</strong>
+                                <div class="actitud-btn-group" data-actitud="Rigor y Calidad de Ejecución" style="display: flex; background: #edf2f7; border-radius: 6px; padding: 2px; gap: 2px;">
+                                    <button type="button" class="actitud-btn-val btn-insuficiente" data-value="1" onclick="guardarActitudBotonDirecto(this, 'Rigor y Calidad de Ejecución', 1)" onmouseenter="mostrarExplicacionValoracion(this, 'Rigor y Calidad de Ejecución', 1)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Insuficiente</button>
+                                    <button type="button" class="actitud-btn-val btn-estandar" data-value="2" onclick="guardarActitudBotonDirecto(this, 'Rigor y Calidad de Ejecución', 2)" onmouseenter="mostrarExplicacionValoracion(this, 'Rigor y Calidad de Ejecución', 2)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Estándar</button>
+                                    <button type="button" class="actitud-btn-val btn-excelente" data-value="3" onclick="guardarActitudBotonDirecto(this, 'Rigor y Calidad de Ejecución', 3)" onmouseenter="mostrarExplicacionValoracion(this, 'Rigor y Calidad de Ejecución', 3)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Excelente</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Receptividad al Feedback -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="font-size: 0.82em; color: #2d3748;">2. Receptividad al Feedback</strong>
+                                <div class="actitud-btn-group" data-actitud="Receptividad al Feedback" style="display: flex; background: #edf2f7; border-radius: 6px; padding: 2px; gap: 2px;">
+                                    <button type="button" class="actitud-btn-val btn-insuficiente" data-value="1" onclick="guardarActitudBotonDirecto(this, 'Receptividad al Feedback', 1)" onmouseenter="mostrarExplicacionValoracion(this, 'Receptividad al Feedback', 1)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Insuficiente</button>
+                                    <button type="button" class="actitud-btn-val btn-estandar" data-value="2" onclick="guardarActitudBotonDirecto(this, 'Receptividad al Feedback', 2)" onmouseenter="mostrarExplicacionValoracion(this, 'Receptividad al Feedback', 2)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Estándar</button>
+                                    <button type="button" class="actitud-btn-val btn-excelente" data-value="3" onclick="guardarActitudBotonDirecto(this, 'Receptividad al Feedback', 3)" onmouseenter="mostrarExplicacionValoracion(this, 'Receptividad al Feedback', 3)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Excelente</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Iniciativa y Ritmo -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="font-size: 0.82em; color: #2d3748;">3. Iniciativa y Ritmo Operativo</strong>
+                                <div class="actitud-btn-group" data-actitud="Iniciativa y Ritmo Operativo" style="display: flex; background: #edf2f7; border-radius: 6px; padding: 2px; gap: 2px;">
+                                    <button type="button" class="actitud-btn-val btn-insuficiente" data-value="1" onclick="guardarActitudBotonDirecto(this, 'Iniciativa y Ritmo Operativo', 1)" onmouseenter="mostrarExplicacionValoracion(this, 'Iniciativa y Ritmo Operativo', 1)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Insuficiente</button>
+                                    <button type="button" class="actitud-btn-val btn-estandar" data-value="2" onclick="guardarActitudBotonDirecto(this, 'Iniciativa y Ritmo Operativo', 2)" onmouseenter="mostrarExplicacionValoracion(this, 'Iniciativa y Ritmo Operativo', 2)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Estándar</button>
+                                    <button type="button" class="actitud-btn-val btn-excelente" data-value="3" onclick="guardarActitudBotonDirecto(this, 'Iniciativa y Ritmo Operativo', 3)" onmouseenter="mostrarExplicacionValoracion(this, 'Iniciativa y Ritmo Operativo', 3)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Excelente</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bloque 2: Competencias Base -->
+                        <div style="border: 1px solid #eef2f0; border-radius: 10px; padding: 12px; background: #fafcfa; display: flex; flex-direction: column; gap: 10px;">
+                            <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 0.88em; color: #1f4e3d; font-weight: 700; border-bottom: 1px dashed #cbd5e1; padding-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                                <span>🛠️</span> Bloque 2: Competencias Base
+                            </h3>
+                            
+                            <!-- Comprensión y Comunicación -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="font-size: 0.82em; color: #2d3748;">1. Comprensión y Comunicación</strong>
+                                <div class="actitud-btn-group" data-actitud="Comprensión y Comunicación (Idioma y Lectura)" style="display: flex; background: #edf2f7; border-radius: 6px; padding: 2px; gap: 2px;">
+                                    <button type="button" class="actitud-btn-val btn-insuficiente" data-value="1" onclick="guardarActitudBotonDirecto(this, 'Comprensión y Comunicación (Idioma y Lectura)', 1)" onmouseenter="mostrarExplicacionValoracion(this, 'Comprensión y Comunicación (Idioma y Lectura)', 1)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Insuficiente</button>
+                                    <button type="button" class="actitud-btn-val btn-estandar" data-value="2" onclick="guardarActitudBotonDirecto(this, 'Comprensión y Comunicación (Idioma y Lectura)', 2)" onmouseenter="mostrarExplicacionValoracion(this, 'Comprensión y Comunicación (Idioma y Lectura)', 2)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Estándar</button>
+                                    <button type="button" class="actitud-btn-val btn-excelente" data-value="3" onclick="guardarActitudBotonDirecto(this, 'Comprensión y Comunicación (Idioma y Lectura)', 3)" onmouseenter="mostrarExplicacionValoracion(this, 'Comprensión y Comunicación (Idioma y Lectura)', 3)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Excelente</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Resolución y Agilidad -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="font-size: 0.82em; color: #2d3748;">2. Resolución y Agilidad Numérica</strong>
+                                <div class="actitud-btn-group" data-actitud="Resolución y Agilidad Numérica (Cálculo Operativo)" style="display: flex; background: #edf2f7; border-radius: 6px; padding: 2px; gap: 2px;">
+                                    <button type="button" class="actitud-btn-val btn-insuficiente" data-value="1" onclick="guardarActitudBotonDirecto(this, 'Resolución y Agilidad Numérica (Cálculo Operativo)', 1)" onmouseenter="mostrarExplicacionValoracion(this, 'Resolución y Agilidad Numérica (Cálculo Operativo)', 1)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Insuficiente</button>
+                                    <button type="button" class="actitud-btn-val btn-estandar" data-value="2" onclick="guardarActitudBotonDirecto(this, 'Resolución y Agilidad Numérica (Cálculo Operativo)', 2)" onmouseenter="mostrarExplicacionValoracion(this, 'Resolución y Agilidad Numérica (Cálculo Operativo)', 2)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Estándar</button>
+                                    <button type="button" class="actitud-btn-val btn-excelente" data-value="3" onclick="guardarActitudBotonDirecto(this, 'Resolución y Agilidad Numérica (Cálculo Operativo)', 3)" onmouseenter="mostrarExplicacionValoracion(this, 'Resolución y Agilidad Numérica (Cálculo Operativo)', 3)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Excelente</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Manejo Técnico PDA -->
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <strong style="font-size: 0.82em; color: #2d3748;">3. Manejo Técnico PDA</strong>
+                                <div class="actitud-btn-group" data-actitud="Manejo Técnico de Herramientas (Terminal PDA)" style="display: flex; background: #edf2f7; border-radius: 6px; padding: 2px; gap: 2px;">
+                                    <button type="button" class="actitud-btn-val btn-insuficiente" data-value="1" onclick="guardarActitudBotonDirecto(this, 'Manejo Técnico de Herramientas (Terminal PDA)', 1)" onmouseenter="mostrarExplicacionValoracion(this, 'Manejo Técnico de Herramientas (Terminal PDA)', 1)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Insuficiente</button>
+                                    <button type="button" class="actitud-btn-val btn-estandar" data-value="2" onclick="guardarActitudBotonDirecto(this, 'Manejo Técnico de Herramientas (Terminal PDA)', 2)" onmouseenter="mostrarExplicacionValoracion(this, 'Manejo Técnico de Herramientas (Terminal PDA)', 2)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Estándar</button>
+                                    <button type="button" class="actitud-btn-val btn-excelente" data-value="3" onclick="guardarActitudBotonDirecto(this, 'Manejo Técnico de Herramientas (Terminal PDA)', 3)" onmouseenter="mostrarExplicacionValoracion(this, 'Manejo Técnico de Herramientas (Terminal PDA)', 3)" onmouseleave="ocultarExplicacionValoracion()" style="flex: 1; border: none; padding: 4px 2px; border-radius: 4px; font-size: 0.78em; font-weight: bold; cursor: pointer; background: transparent; color: #4a5568; transition: all 0.15s;">Excelente</button>
+                                </div>
+                            </div>
+                        </div>
+                        
                     </div>
                     
-                    <!-- Gráfico de radar (Derecha) -->
-                    <div style="flex: 1; min-width: 280px; display: flex; justify-content: center; align-items: center; height: 300px; position: relative;">
+                    <!-- Columna 2 (Medio): Gráfico de radar más grande -->
+                    <div style="flex: 1; min-width: 290px; display: flex; justify-content: center; align-items: center; height: 380px; position: relative;">
                         <canvas id="radarChartActitudinal"></canvas>
                     </div>
+                    
+                    <!-- Columna 3 (Derecha): Informe de Evaluación Automático -->
+                    <div style="flex: 1; min-width: 290px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.02); height: 100%; box-sizing: border-box;">
+                        <h3 style="margin-top: 0; margin-bottom: 8px; font-size: 0.9em; color: #1f4e3d; font-weight: 700; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                            <span>📝</span> Informe de Evaluación Automático
+                        </h3>
+                        <div id="informe-evaluacion-automatico-texto" style="font-size: 0.85em; color: #2d3748; line-height: 1.5; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; max-height: 380px;">
+                            <!-- Generado dinámicamente por JS -->
+                        </div>
+                    </div>
+                    
+                </div>
+                
+                <!-- Timeline de Modificaciones -->
+                <div style="margin-top: 20px; border-top: 1px solid #edf2ee; padding-top: 15px;">
+                    <h3 style="font-size: 0.9em; color: #1f4e3d; font-weight: 700; margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px;">
+                        <span>⏳</span> Historial de Cambios en Evaluación 360
+                    </h3>
+                    <div id="timeline-modificaciones-360-container" style="max-height: 140px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px;">
+                        <p style="color: #718096; font-size: 0.82em; font-style: italic; margin: 0;">Cargando historial de cambios...</p>
+                    </div>
+                </div>
+
+                
+                <!-- Tooltip flotante para las explicaciones de valoración -->
+                <div id="valoracion-tooltip" style="display: none; position: fixed; background: #1e293b; color: #f8fafc; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); padding: 12px; width: 300px; z-index: 99999; font-size: 0.85em; pointer-events: none; transition: opacity 0.15s ease; border-left: 4px solid #10b981; line-height: 1.4;">
+                    <strong id="tooltip-actitud-title" style="display: block; margin-bottom: 4px; color: #34d399; font-size: 0.90em; text-transform: uppercase; letter-spacing: 0.5px;"></strong>
+                    <span id="tooltip-actitud-desc"></span>
                 </div>
             </div>
 
@@ -446,6 +462,36 @@
                 </div>
             </div>
 
+            <!-- Historial de Embalaje (Encajador) -->
+            <div class="panel" id="panel-historial-encajador" style="display: none; flex-direction: column; gap: 15px; margin-top: 10px;">
+                <div style="border-bottom: 1px solid #eee; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="font-size: 1.1em; margin: 0; color: #1f4e3d; display: flex; align-items: center; gap: 8px;">
+                        📋 Historial de Embalaje (Encajador)
+                    </h2>
+                    <span id="nota-encajador-badge" style="font-weight: bold; background: #ebf7ee; color: #27ae60; border: 1px solid #27ae60; font-size: 0.9em; padding: 4px 10px; border-radius: 20px; display: none;"></span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="tablaHistorialEncajador" style="width: 100%; border-collapse: collapse; font-size: 0.95em; text-align: left;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #edf2ee; color: #82928a; font-weight: 700;">
+                                <th style="padding: 10px 6px;">Fecha</th>
+                                <th style="padding: 10px 6px; text-align: right;">Líneas/Hora</th>
+                                <th style="padding: 10px 6px; text-align: right;">Líneas Totales</th>
+                                <th style="padding: 10px 6px; text-align: right;">Volumen/Hora</th>
+                                <th style="padding: 10px 6px; text-align: right;">Rendimiento %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historial-encajador-body">
+                            <tr>
+                                <td colspan="5" style="text-align: center; padding: 20px; color: #999; font-style: italic;">
+                                    Cargando historial de embalaje...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
 
     </div>
@@ -506,6 +552,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <!-- Tu lógica principal forzando la actualización -->
-<script src="/static/js/expediente.js?v=46"></script>
+<script src="/static/js/expediente.js?v=63"></script>
 
 {% endblock %}

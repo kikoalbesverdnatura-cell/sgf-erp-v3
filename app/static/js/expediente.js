@@ -194,13 +194,15 @@ async function cargarExpediente() {
     const infoCabecera = document.getElementById("departamento"); 
     if (infoCabecera) {
         infoCabecera.innerHTML = `
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center;">
                 <span class="badge gris editable-badge" id="badge-departamento" data-campo="departamento" style="cursor: pointer;" title="Haga clic para cambiar el departamento">🏢 ${persona.departamento || "-"} ✏️</span>
                 <span class="badge azul">📅 Entrada: ${persona.fecha_incorporacion || "-"}</span>
                 <span class="badge azul">⏰ Hora: ${persona.hora_entrada || "-"}</span>
                 <span class="badge naranja">⏳ Días seg.: ${persona.dias || "0"}</span>
                 <span class="badge rojo editable-badge" id="badge-riesgo" data-campo="riesgo" style="cursor: pointer;" title="Haga clic para cambiar el nivel de riesgo">⚠️ Riesgo: ${persona.riesgo || "BAJO"} (${persona.riesgo_score || "0"}) ✏️</span>
                 <span class="badge editable-badge" id="estadoBadge" data-campo="estado" style="font-weight:bold; cursor: pointer;" title="Haga clic para cambiar el estado">📋 Estado: ${persona.estado || "-"} ✏️</span>
+                <span class="badge" style="font-weight: 800; font-size: 0.92em; padding: 5px 12px; background-color: #652e2e; color: #fff; cursor: default; border-radius: 8px;" title="Líneas límite configuradas en Salix">📋 Líneas Límite: ${persona.lines_limit !== undefined ? persona.lines_limit : "0"}</span>
+                <span class="badge" style="font-weight: 800; font-size: 0.92em; padding: 5px 12px; background-color: #2e5965; color: #fff; cursor: default; border-radius: 8px;" title="Volumen límite configurado en Salix">📦 Vol. Límite: ${persona.volume_limit !== undefined ? persona.volume_limit : "0.0"}</span>
             </div>
         `;
         
@@ -308,6 +310,18 @@ function renderizarDatosGrafana(metrics) {
     contenedorGrafana.style.border = "none";
     
     let htmlGrafanaCompleto = "";
+    let lastUpdatedStr = "--";
+    
+    const formatTimestampToDay = (ts) => {
+        if (!ts) return "-";
+        const dateObj = new Date(ts);
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const year = dateObj.getFullYear();
+        const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+        const ddd = diasSemana[dateObj.getDay()];
+        return `${day}-${month}-${year} ${ddd}`;
+    };
     
     // 1. Validar errores de conexión o autenticación del backend
     if (metrics.error) {
@@ -338,6 +352,137 @@ function renderizarDatosGrafana(metrics) {
     metrics = metrics || {};
     
     if (metrics.has_data && metrics.history && metrics.history.length > 0) {
+        // Formatear fecha
+        lastUpdatedStr = "--";
+        if (metrics.last_updated) {
+            try {
+                const parts = metrics.last_updated.split("T");
+                const dateParts = parts[0].split("-");
+                const timeParts = parts[1].split(".")[0].split(":");
+                lastUpdatedStr = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]} ${timeParts[0]}:${timeParts[1]}`;
+            } catch(e) {
+                lastUpdatedStr = metrics.last_updated;
+            }
+        }
+
+
+
+        const dept = window.currentPersona && window.currentPersona.departamento 
+            ? window.currentPersona.departamento.toUpperCase().trim() 
+            : "";
+        const isEncajador = dept && dept.includes("ENCAJADO");
+
+        if (isEncajador) {
+            // Métricas promedio e industriales
+            const avgLH = metrics.lines_hour || 0;
+            const avgVH = metrics.volumen_jornada_hora || metrics.volumen_hora || 0;
+            const totalL = metrics.volume || 0;
+            const totalVol = metrics.total_volume_m3 || 0;
+            
+            let totalTickets = 0;
+            metrics.history.forEach(h => {
+                totalTickets += parseInt(h.tickets || 0);
+            });
+
+            htmlGrafanaCompleto = `
+                <div class="grafana-dashboard" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+                    
+                    <!-- 1. TARJETAS RESUMEN DE EMBALAJE (ENCAJADOR) -->
+                    <div class="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; width: 100%;">
+                        
+                        <!-- Tarjeta Líneas/Hora -->
+                        <div class="panel" style="margin: 0; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 700; color: #173D2D; font-size: 1.05em;">📦 Líneas / Hora Promedio</span>
+                                <span style="font-size: 1.4em; font-weight: 800; color: #2b6cb0; background: #ebf3f9; padding: 4px 10px; border-radius: 8px;">${avgLH}</span>
+                            </div>
+                            <div style="font-size: 0.85em; color: #4a5568;">
+                                Promedio de líneas embaladas por hora de trabajo efectivo durante el período.
+                            </div>
+                            <div style="font-size: 0.8em; color: #6b7a72; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #edf2ee; padding-top: 10px;">
+                                <span>Líneas Totales: <strong>${totalL}</strong></span>
+                                <span>Última Act.: <strong>${lastUpdatedStr}</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Tarjeta Volumen/Hora -->
+                        <div class="panel" style="margin: 0; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-weight: 700; color: #173D2D; font-size: 1.05em;">📊 Volumen / Hora Promedio</span>
+                                <span style="font-size: 1.4em; font-weight: 800; color: #2ecc71; background: #f0fbf4; padding: 4px 10px; border-radius: 8px;">${parseFloat(avgVH).toFixed(2)} m³</span>
+                            </div>
+                            <div style="font-size: 0.85em; color: #4a5568;">
+                                Promedio de volumen (m³) embalado por hora de trabajo efectivo durante el período.
+                            </div>
+                            <div style="font-size: 0.8em; color: #6b7a72; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #edf2ee; padding-top: 10px;">
+                                <span>Volumen Total: <strong>${totalVol.toFixed(2)} m³</strong></span>
+                                <span>Total Tickets: <strong>${totalTickets}</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. EVOLUCIÓN HISTÓRICA (GRÁFICO) -->
+                    <div class="panel" style="margin: 0; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2ee; padding-bottom: 8px; margin-bottom: 15px;">
+                            <strong style="font-size: 1.4em; color: #173D2D; margin: 0;">📈 Evolución Histórica</strong>
+                        </div>
+                        <div id="contenedor-canvas-grafico" style="position: relative; height: 350px; width: 100%;">
+                            <canvas id="graficoEvolucionGrafana"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 3. TABLA DE TURNOS DETALLADA -->
+                    <div class="panel" style="margin: 0; background: #fff; border: 1px solid #edf2ee; border-radius: 14px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                        <strong style="font-size: 1.1em; color: #173D2D; display: block; margin-bottom: 12px; border-bottom: 1px solid #edf2ee; padding-bottom: 8px;">📋 Historial de Turnos (Encajador)</strong>
+                        <div id="turnos-wrapper" style="overflow-x: auto; max-height: 280px; overflow-y: auto; border: 1px solid #edf2ee; border-radius: 8px;">
+                            <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.82em; white-space: nowrap; text-align: center; overflow: visible !important;">
+                                <thead style="position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">
+                                    <tr style="background-color: #f0f2f5;">
+                                        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; color: #333; font-weight: bold; text-align: center; position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">Día</th>
+                                        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; color: #333; font-weight: bold; position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">Líneas/Hora</th>
+                                        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; color: #333; font-weight: bold; position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">Volumen/Hora</th>
+                                        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; color: #333; font-weight: bold; position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">Líneas</th>
+                                        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; color: #333; font-weight: bold; position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">Volumen</th>
+                                        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; color: #333; font-weight: bold; position: sticky; top: 0; z-index: 10; background-color: #f0f2f5;">Tickets</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${metrics.history.map(row => {
+                                        const dateStr = formatTimestampToDay(row.workDate);
+                                        const lh = row.lineas_hora !== undefined ? row.lineas_hora : "-";
+                                        const vh = row.volumen_hora !== undefined ? `${parseFloat(row.volumen_hora).toFixed(2)} m³` : "-";
+                                        const lin = row.lineas !== undefined ? row.lineas : "-";
+                                        const vol = row.volumen !== undefined ? `${parseFloat(row.volumen).toFixed(2)} m³` : "-";
+                                        const tks = row.tickets !== undefined ? row.tickets : "-";
+                                        return `
+                                            <tr style="border-bottom: 1px solid #edf2ee; background: #fff; transition: background 0.15s;">
+                                                <td style="padding: 10px; border-bottom: 1px solid #edf2ee; font-weight: 600;">${dateStr}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #edf2ee; font-weight: 700; color: #1a202c;">${lh}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #edf2ee; color: #4a5568;">${vh}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #edf2ee; font-weight: 600; color: #2d3748;">${lin}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #edf2ee; color: #4a5568;">${vol}</td>
+                                                <td style="padding: 10px; border-bottom: 1px solid #edf2ee; font-weight: 600; color: #2b6cb0;">${tks}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            contenedorGrafana.innerHTML = htmlGrafanaCompleto;
+            
+            // Ocultar semáforo
+            const alertContainer = document.getElementById("alerta-codigo-container");
+            if (alertContainer) alertContainer.style.display = "none";
+
+            setTimeout(() => {
+                inicializarGraficoEvolucion(metrics.history);
+            }, 50);
+            return;
+        }
+
         // Escala de color de productividad
         const pNum = parseFloat(metrics.productivity_pct || 0);
         let colorProd = "#c0392b"; // Rojo
@@ -383,7 +528,7 @@ function renderizarDatosGrafana(metrics) {
         }
 
         // Formatear fecha
-        let lastUpdatedStr = "--";
+        lastUpdatedStr = "--";
         if (metrics.last_updated) {
             try {
                 const parts = metrics.last_updated.split("T");
@@ -433,16 +578,7 @@ function renderizarDatosGrafana(metrics) {
             colorRatioBg = "#EAB839"; // yellow
         }
 
-        const formatTimestampToDay = (ts) => {
-            if (!ts) return "-";
-            const dateObj = new Date(ts);
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = dateObj.getFullYear();
-            const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-            const ddd = diasSemana[dateObj.getDay()];
-            return `${day}-${month}-${year} ${ddd}`;
-        };
+
 
         htmlGrafanaCompleto = `
             <div class="grafana-dashboard" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
@@ -680,6 +816,101 @@ function inicializarGraficoEvolucion(datos) {
     const labels = datosOrdenados.map(d => d.fecha || "");
     
     if (miGraficoGrafana) miGraficoGrafana.destroy();
+
+    const dept = window.currentPersona && window.currentPersona.departamento 
+        ? window.currentPersona.departamento.toUpperCase().trim() 
+        : "";
+    const isEncajador = dept && dept.includes("ENCAJADO");
+
+    if (isEncajador) {
+        // --- VISTA ENCAJADORES (SIN COMPARATIVA DE LÍNEAS HORA) ---
+        const datasetLineasHora = datosOrdenados.map(d => parseFloat(d.lineas_hora) || 0);
+        const datasetVolumenHora = datosOrdenados.map(d => parseFloat(d.volumen_hora) || 0);
+        const datasetTickets = datosOrdenados.map(d => parseInt(d.tickets) || 0);
+
+        miGraficoGrafana = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'line',
+                        label: 'Líneas/Hora',
+                        data: datasetLineasHora,
+                        borderColor: '#2e7d32',
+                        backgroundColor: 'rgba(46, 125, 50, 0.05)',
+                        borderWidth: 2.5,
+                        tension: 0.3,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Volumen/Hora (m³)',
+                        data: datasetVolumenHora,
+                        borderColor: '#1565c0',
+                        backgroundColor: 'rgba(21, 101, 192, 0.05)',
+                        borderWidth: 2.5,
+                        tension: 0.3,
+                        yAxisID: 'y1'
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Tickets',
+                        data: datasetTickets,
+                        backgroundColor: 'rgba(230, 126, 34, 0.15)',
+                        borderColor: 'rgba(230, 126, 34, 0.5)',
+                        borderWidth: 1.5,
+                        yAxisID: 'y2',
+                        barPercentage: 0.6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { boxWidth: 12, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { 
+                            minRotation: 90, 
+                            maxRotation: 90, 
+                            font: { size: 11, weight: 'bold' } 
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: 'Líneas / Hora', color: '#2e7d32', font: { size: 12, weight: 'bold' } },
+                        ticks: { color: '#2e7d32' },
+                        suggestedMin: 0
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: 'Volumen / Hora (m³)', color: '#1565c0', font: { size: 12, weight: 'bold' } },
+                        ticks: { color: '#1565c0' },
+                        suggestedMin: 0,
+                        grid: { drawOnChartArea: false }
+                    },
+                    y2: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: 'Tickets', color: '#d35400', font: { size: 12, weight: 'bold' } },
+                        ticks: { color: '#d35400' },
+                        suggestedMin: 0,
+                        grid: { drawOnChartArea: false }
+                    }
+                }
+            }
+        });
+        return;
+    }
 
     if (tipoGrafico === "curva") {
         // --- VISTA CURVA DE APRENDIZAJE ---
@@ -921,68 +1152,92 @@ document.addEventListener("click", function(e) {
     if (!badge || badge.dataset.editing === "true") return;
 
     const campo = badge.dataset.campo;
-    const valorActual = badge.textContent.replace(/[🏢⚠️📋✏️]/g, "").replace("Riesgo:", "").replace("Estado:", "").trim().split("(")[0].trim();
+    const valorActual = badge.textContent
+        .replace(/[🏢⚠️📋📦✏️]/g, "")
+        .replace("Riesgo:", "")
+        .replace("Estado:", "")
+        .replace("Líneas Límite:", "")
+        .replace("Vol. Límite:", "")
+        .trim()
+        .split("(")[0]
+        .trim();
     const idTrabajador = id; 
 
     badge.dataset.editing = "true";
-
-    const select = document.createElement("select");
-    select.style.padding = "4px 8px";
-    select.style.borderRadius = "6px";
-    select.style.border = "1px solid #ccc";
-    select.style.fontSize = "0.9em";
-    select.style.cursor = "pointer";
-
-    let opciones = [];
-    if (campo === "departamento") {
-        opciones = [
-            "TALLER NATURAL",
-            "SACADO H",
-            "SACADO V",
-            "SACADO PREVIA",
-            "PRODUCCION",
-            "PRODUCCIÓN",
-            "ENCAJADO",
-            "ENCAJADO H",
-            "ENCAJADO V"
-        ];
-    } else if (campo === "estado") {
-        opciones = [
-            "Onboarding",
-            "Shadow",
-            "Libre",
-            "Equipo",
-            "Finalizado",
-            "No apto"
-        ];
-    } else if (campo === "riesgo") {
-        opciones = ["BAJO", "MEDIO", "ALTO"];
-    }
-
-    const valActualUpper = valorActual.toUpperCase();
-    const opcionesUpper = opciones.map(o => o.toUpperCase());
-    if (valorActual && !opcionesUpper.includes(valActualUpper)) {
-        opciones.unshift(valorActual);
-    }
-
-    opciones.forEach(optVal => {
-        const opt = document.createElement("option");
-        opt.value = optVal;
-        opt.textContent = optVal;
-        if (optVal.toUpperCase() === valActualUpper) {
-            opt.selected = true;
-        }
-        select.appendChild(opt);
-    });
-
     const originalHTML = badge.innerHTML;
 
+    let inputEl;
+    const esNumerico = (campo === "lines_limit" || campo === "volume_limit");
+
+    if (esNumerico) {
+        inputEl = document.createElement("input");
+        inputEl.type = "number";
+        if (campo === "volume_limit") {
+            inputEl.step = "0.1";
+        }
+        inputEl.style.padding = "4px 8px";
+        inputEl.style.borderRadius = "6px";
+        inputEl.style.border = "1px solid #ccc";
+        inputEl.style.fontSize = "0.9em";
+        inputEl.style.width = "75px";
+        inputEl.value = valorActual;
+    } else {
+        inputEl = document.createElement("select");
+        inputEl.style.padding = "4px 8px";
+        inputEl.style.borderRadius = "6px";
+        inputEl.style.border = "1px solid #ccc";
+        inputEl.style.fontSize = "0.9em";
+        inputEl.style.cursor = "pointer";
+
+        let opciones = [];
+        if (campo === "departamento") {
+            opciones = [
+                "TALLER NATURAL",
+                "SACADO H",
+                "SACADO V",
+                "SACADO PREVIA",
+                "PRODUCCION",
+                "PRODUCCIÓN",
+                "ENCAJADO",
+                "ENCAJADO H",
+                "ENCAJADO V"
+            ];
+        } else if (campo === "estado") {
+            opciones = [
+                "Onboarding",
+                "Shadow",
+                "Libre",
+                "Equipo",
+                "Finalizado",
+                "No apto"
+            ];
+        } else if (campo === "riesgo") {
+            opciones = ["BAJO", "MEDIO", "ALTO"];
+        }
+
+        const valActualUpper = valorActual.toUpperCase();
+        const opcionesUpper = opciones.map(o => o.toUpperCase());
+        if (valorActual && !opcionesUpper.includes(valActualUpper)) {
+            opciones.unshift(valorActual);
+        }
+
+        opciones.forEach(optVal => {
+            const opt = document.createElement("option");
+            opt.value = optVal;
+            opt.textContent = optVal;
+            if (optVal.toUpperCase() === valActualUpper) {
+                opt.selected = true;
+            }
+            inputEl.appendChild(opt);
+        });
+    }
+
     badge.innerHTML = "";
-    badge.appendChild(select);
-    select.focus();
+    badge.appendChild(inputEl);
+    inputEl.focus();
 
     const guardarCambio = async () => {
-        const nuevoValor = select.value;
+        const nuevoValor = inputEl.value;
         if (nuevoValor === valorActual) {
             badge.innerHTML = originalHTML;
             delete badge.dataset.editing;
@@ -998,7 +1253,6 @@ document.addEventListener("click", function(e) {
             });
             const data = await res.json();
             if (data && data.ok) {
-                // Actualizar el valor en el badge localmente sin recargar todo el expediente
                 if (campo === "estado") {
                     badge.innerHTML = `📋 Estado: ${nuevoValor} ✏️`;
                     const estVal = nuevoValor.trim().toLowerCase();
@@ -1020,7 +1274,6 @@ document.addEventListener("click", function(e) {
                 } else if (campo === "departamento") {
                     badge.innerHTML = `🏢 ${nuevoValor || "-"} ✏️`;
                 } else if (campo === "riesgo") {
-                    // Mantener el score de riesgo anterior para evitar recarga
                     const scoreMatch = originalHTML.match(/\(([^)]+)\)/);
                     const scoreStr = scoreMatch ? scoreMatch[1] : "0";
                     badge.innerHTML = `⚠️ Riesgo: ${nuevoValor || "BAJO"} (${scoreStr}) ✏️`;
@@ -1031,6 +1284,16 @@ document.addEventListener("click", function(e) {
                         recalcularFondoFicha(nuevoValor || "BAJO", lblChaleco.dataset.chaleco || "NO");
                     }
                     actualizarCabeceraSemaforo();
+                } else if (campo === "lines_limit") {
+                    badge.innerHTML = `📋 Líneas Límite: ${nuevoValor} ✏️`;
+                    if (typeof cargarTimelineLimites === "function") {
+                        cargarTimelineLimites();
+                    }
+                } else if (campo === "volume_limit") {
+                    badge.innerHTML = `📦 Vol. Límite: ${nuevoValor} ✏️`;
+                    if (typeof cargarTimelineLimites === "function") {
+                        cargarTimelineLimites();
+                    }
                 } else {
                     badge.innerHTML = `${nuevoValor} ✏️`;
                 }
@@ -1047,15 +1310,31 @@ document.addEventListener("click", function(e) {
         }
     };
 
-    select.addEventListener("change", guardarCambio);
-    select.addEventListener("blur", () => {
-        setTimeout(() => {
-            if (badge.dataset.editing === "true") {
-                badge.innerHTML = originalHTML;
-                delete badge.dataset.editing;
+    if (esNumerico) {
+        inputEl.addEventListener("keypress", (evt) => {
+            if (evt.key === "Enter") {
+                guardarCambio();
             }
-        }, 150);
-    });
+        });
+        inputEl.addEventListener("blur", () => {
+            setTimeout(() => {
+                if (badge.dataset.editing === "true") {
+                    badge.innerHTML = originalHTML;
+                    delete badge.dataset.editing;
+                }
+            }, 250);
+        });
+    } else {
+        inputEl.addEventListener("change", guardarCambio);
+        inputEl.addEventListener("blur", () => {
+            setTimeout(() => {
+                if (badge.dataset.editing === "true") {
+                    badge.innerHTML = originalHTML;
+                    delete badge.dataset.editing;
+                }
+            }, 150);
+        });
+    }
 });
 
 // =====================================================
@@ -1492,22 +1771,24 @@ function inicializarColapsoChecklist() {
 // VALORACIÓN ACTITUDINAL Y GRÁFICO DE RADAR
 //==================================================
 
+// Variables de control de evaluación 360
+window.valoresActitudActuales = {};
+window.personaEvalActual = null;
+
 async function cargarValoracionActitudinal(persona) {
     const statusMsg = document.getElementById("actitud-status-msg");
-    const selectElements = document.querySelectorAll(".select-actitud");
-    
     if (statusMsg) {
         statusMsg.innerHTML = '<span class="loading-spinner" style="border: 2px solid #f3f3f3; border-top: 2px solid #e2a100; border-radius: 50%; width: 12px; height: 12px; display: inline-block; animation: spin 1s linear infinite; vertical-align: middle;"></span> Cargando...';
     }
 
     // Inicializar valores de actitud a 0
     let valoresActitud = {
-        "Proactividad": 0,
-        "Autonomía": 0,
-        "Disposición": 0,
-        "Respeto normativo": 0,
-        "Receptividad": 0,
-        "Uso PDA": 0
+        "Rigor y Calidad de Ejecución": 0,
+        "Receptividad al Feedback": 0,
+        "Iniciativa y Ritmo Operativo": 0,
+        "Comprensión y Comunicación (Idioma y Lectura)": 0,
+        "Resolución y Agilidad Numérica (Cálculo Operativo)": 0,
+        "Manejo Técnico de Herramientas (Terminal PDA)": 0
     };
 
     try {
@@ -1518,7 +1799,7 @@ async function cargarValoracionActitudinal(persona) {
             valoresActitud = data.valores;
             if (statusMsg) {
                 if (data.error_acceso) {
-                    statusMsg.innerHTML = '⚠️ Sin permisos en Google Sheets (Verifique el service account)';
+                    statusMsg.innerHTML = '⚠️ Sin permisos en Google Sheets';
                     statusMsg.style.color = '#c0392b';
                 } else {
                     statusMsg.innerHTML = '✓ Sincronizado con Google Sheets';
@@ -1540,66 +1821,374 @@ async function cargarValoracionActitudinal(persona) {
         }
     }
 
-    // Actualizar los select en el HTML con las puntuaciones obtenidas
-    selectElements.forEach(select => {
-        const actitud = select.dataset.actitud;
-        if (actitud && valoresActitud[actitud] !== undefined) {
-            select.value = valoresActitud[actitud];
-        }
-        
-        // Agregar manejador de eventos change
-        select.onchange = async function() {
-            const nuevaPuntuacion = parseInt(select.value);
-            valoresActitud[actitud] = nuevaPuntuacion;
-            
-            // Actualizar el gráfico
-            actualizarRadarChart(valoresActitud);
-            
-            if (statusMsg) {
-                statusMsg.innerHTML = '💾 Guardando en Google Sheets...';
-                statusMsg.style.color = '#e2a100';
-            }
+    // Guardar variables globales en window
+    window.valoresActitudActuales = valoresActitud;
+    window.personaEvalActual = persona;
 
-            try {
-                const res = await fetch(`/api/trabajador/${persona.id}/actitud`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        actitud: actitud,
-                        valor: nuevaPuntuacion,
-                        nombre: persona.nombre,
-                        departamento: persona.departamento
-                    })
-                });
-                const responseData = await res.json();
-                
-                if (responseData.ok) {
-                    if (statusMsg) {
-                        statusMsg.innerHTML = '✓ Guardado en Google Sheets';
-                        statusMsg.style.color = '#27ae60';
-                    }
-                } else {
-                    console.error("Error al actualizar actitud:", responseData.error);
-                    if (statusMsg) {
-                        statusMsg.innerHTML = '⚠️ Error al guardar';
-                        statusMsg.style.color = '#c0392b';
-                    }
-                    alert("No se pudo guardar la valoración actitudinal: " + (responseData.error || "Error de permisos"));
-                }
-            } catch (err) {
-                console.error("Error de red al actualizar actitud:", err);
-                if (statusMsg) {
-                    statusMsg.innerHTML = '⚠️ Error de red';
-                    statusMsg.style.color = '#c0392b';
-                }
-                alert("Error de red al guardar la valoración actitudinal.");
-            }
-        };
-    });
+    // Pintar los botones según los valores recuperados
+    actualizarBotonesActitudUI(valoresActitud);
 
-    // Dibujar/Actualizar el gráfico de radar
+    // Generar informe automático
+    generarInformeAutomatico(valoresActitud);
+
+    // Cargar historial de cambios
+    cargarTimeline360(persona.id);
+
+    // Dibujar el gráfico de radar
     actualizarRadarChart(valoresActitud);
 }
+
+function actualizarBotonesActitudUI(valores) {
+    const groups = document.querySelectorAll(".actitud-btn-group");
+    groups.forEach(group => {
+        const actitud = group.dataset.actitud;
+        const valorActivo = valores[actitud] || 0;
+        
+        const buttons = group.querySelectorAll(".actitud-btn-val");
+        buttons.forEach(btn => {
+            const btnVal = parseInt(btn.dataset.value);
+            
+            // Restablecer estilos de botón transparente/por defecto
+            btn.style.background = "transparent";
+            btn.style.color = "#4a5568";
+            btn.style.boxShadow = "none";
+            
+            if (btnVal === valorActivo) {
+                if (btnVal === 1) {
+                    btn.style.background = "#fee2e2"; // rojo
+                    btn.style.color = "#b91c1c";
+                    btn.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
+                } else if (btnVal === 2) {
+                    btn.style.background = "#fef3c7"; // amarillo/ámbar
+                    btn.style.color = "#b45309";
+                    btn.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
+                } else if (btnVal === 3) {
+                    btn.style.background = "#dcfce7"; // verde
+                    btn.style.color = "#15803d";
+                    btn.style.boxShadow = "0 1px 2px rgba(0,0,0,0.05)";
+                }
+            }
+        });
+    });
+}
+
+async function guardarActitudBotonDirecto(btnElement, actitud, valor) {
+    const statusMsg = document.getElementById("actitud-status-msg");
+    const persona = window.personaEvalActual;
+    const valoresActitud = window.valoresActitudActuales;
+    
+    if (!persona) return;
+    
+    valoresActitud[actitud] = valor;
+    
+    // Actualizar interfaz de botones
+    actualizarBotonesActitudUI(valoresActitud);
+    
+    // Regenerar informe automático
+    generarInformeAutomatico(valoresActitud);
+    
+    // Actualizar el gráfico
+    actualizarRadarChart(valoresActitud);
+    
+    if (statusMsg) {
+        statusMsg.innerHTML = '💾 Guardando en Google Sheets...';
+        statusMsg.style.color = '#e2a100';
+    }
+
+    try {
+        const res = await fetch(`/api/trabajador/${persona.id}/actitud`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                actitud: actitud,
+                valor: valor,
+                nombre: persona.nombre,
+                departamento: persona.departamento
+            })
+        });
+        const responseData = await res.json();
+        
+        if (responseData.ok) {
+            if (statusMsg) {
+                statusMsg.innerHTML = '✓ Guardado en Google Sheets';
+                statusMsg.style.color = '#27ae60';
+            }
+            // Recargar timeline de cambios
+            cargarTimeline360(persona.id);
+        } else {
+            console.error("Error al actualizar actitud:", responseData.error);
+            if (statusMsg) {
+                statusMsg.innerHTML = '⚠️ Error al guardar';
+                statusMsg.style.color = '#c0392b';
+            }
+            alert("No se pudo guardar la valoración: " + (responseData.error || "Error de permisos"));
+        }
+    } catch (err) {
+        console.error("Error de red al actualizar actitud:", err);
+        if (statusMsg) {
+            statusMsg.innerHTML = '⚠️ Error de red';
+            statusMsg.style.color = '#c0392b';
+        }
+        alert("Error de red al guardar la valoración.");
+    }
+}
+
+function generarInformeAutomatico(valores) {
+    const container = document.getElementById("informe-evaluacion-automatico-texto");
+    if (!container) return;
+    
+    const totalIndicadores = Object.keys(valores).length;
+    const evaluados = Object.values(valores).filter(v => v > 0);
+    
+    if (evaluados.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: #718096; padding: 40px 10px; font-style: italic;">
+                <p style="margin: 0; font-size: 1.15em;">⚠️ Sin datos suficientes</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9em; line-height: 1.4;">Registre las puntuaciones en el panel izquierdo para generar el informe de evaluación automático.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const fortalezas = [];
+    const estandar = [];
+    const mejoras = [];
+    
+    for (const [key, val] of Object.entries(valores)) {
+        if (val === 3) {
+            fortalezas.push(key);
+        } else if (val === 2) {
+            estandar.push(key);
+        } else if (val === 1) {
+            mejoras.push(key);
+        }
+    }
+    
+    let html = "";
+    
+    // Resumen Global
+    const media = (evaluados.reduce((a, b) => a + b, 0) / evaluados.length).toFixed(1);
+    let valoracionGlobal = "";
+    let colorGlobal = "#718096";
+    if (media >= 2.5) {
+        valoracionGlobal = "Excelente desempeño general";
+        colorGlobal = "#15803d";
+    } else if (media >= 1.7) {
+        valoracionGlobal = "Desempeño estándar y autónomo";
+        colorGlobal = "#b45309";
+    } else {
+        valoracionGlobal = "Requiere supervisión y soporte";
+        colorGlobal = "#b91c1c";
+    }
+    
+    html += `
+        <div style="background: #fafbfd; border: 1px solid #eef2f6; border-radius: 8px; padding: 10px; margin-bottom: 5px;">
+            <span style="font-size: 0.75em; color: #94a3b8; font-weight: bold; text-transform: uppercase; display: block;">Resumen del Perfil</span>
+            <strong style="font-size: 1.05em; color: ${colorGlobal};">${valoracionGlobal}</strong>
+            <div style="font-size: 0.85em; color: #475569; margin-top: 3px;">Puntuación media: <strong>${media} / 3</strong> (${evaluados.length} de ${totalIndicadores} evaluados)</div>
+        </div>
+    `;
+    
+    // Fortalezas (Excelente - 3)
+    if (fortalezas.length > 0) {
+        html += `
+            <div style="margin-top: 5px;">
+                <strong style="color: #15803d; font-size: 0.9em; display: flex; align-items: center; gap: 4px;">🚀 Fortalezas detectadas:</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 0.9em; color: #334155; display: flex; flex-direction: column; gap: 3px;">
+                    ${fortalezas.map(f => `<li><strong>${f}</strong>: Cumple de forma excelente, mostrando alta iniciativa y autonomía operativa.</li>`).join("")}
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Estándar (Estándar - 2)
+    if (estandar.length > 0) {
+        html += `
+            <div style="margin-top: 8px;">
+                <strong style="color: #b45309; font-size: 0.9em; display: flex; align-items: center; gap: 4px;">✓ Nivel estándar:</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 0.9em; color: #334155; display: flex; flex-direction: column; gap: 3px;">
+                    ${estandar.map(e => `<li><strong>${e}</strong>: Ejecución limpia y autónoma. Se desenvuelve sin incidencias y corrige fallos al vuelo.</li>`).join("")}
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Áreas de mejora (Insuficiente - 1)
+    if (mejoras.length > 0) {
+        html += `
+            <div style="margin-top: 8px;">
+                <strong style="color: #b91c1c; font-size: 0.9em; display: flex; align-items: center; gap: 4px;">⚠️ Oportunidades de mejora:</strong>
+                <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 0.9em; color: #334155; display: flex; flex-direction: column; gap: 3px;">
+                    ${mejoras.map(m => `<li><strong>${m}</strong>: Se observan fallos o bloqueos reiterados. Requiere formación adicional o mayor acompañamiento.</li>`).join("")}
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Conclusión y Recomendación
+    let recomendacion = "";
+    if (mejoras.length > 0) {
+        recomendacion = "Se recomienda programar sesiones de feedback guiado centrándose en los puntos críticos marcados en rojo, y acompañamiento específico de un formador en planta.";
+    } else if (fortalezas.length > 0) {
+        recomendacion = "Trabajador con excelente ritmo y autonomía. Apto para tareas de mayor responsabilidad o para servir de apoyo lingüístico/operativo a compañeros.";
+    } else {
+        recomendacion = "Desempeño equilibrado y estable. Continuar con el seguimiento ordinario en las tareas asignadas.";
+    }
+    
+    html += `
+        <div style="margin-top: 12px; padding: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; color: #166534; font-size: 0.82em; line-height: 1.4;">
+            <strong>Recomendación:</strong> ${recomendacion}
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+async function cargarTimeline360(personaId) {
+    const container = document.getElementById("timeline-modificaciones-360-container");
+    if (!container) return;
+    
+    try {
+        const res = await fetch(`/api/trabajador/${personaId}/timeline-360`);
+        const data = await res.json();
+        
+        if (data.ok && data.timeline) {
+            container.innerHTML = "";
+            const filtered = data.timeline.filter(log => log.indicador !== "Líneas Límite" && log.indicador !== "Volumen Límite");
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="color: #718096; font-size: 0.82em; font-style: italic; margin: 0;">No hay modificaciones registradas en esta ficha.</p>';
+                return;
+            }
+            
+            filtered.forEach(log => {
+                let color = "#475569";
+                let textVal = "";
+                if (log.valor === "1") {
+                    color = "#b91c1c";
+                    textVal = "Insuficiente (1)";
+                } else if (log.valor === "2") {
+                    color = "#b45309";
+                    textVal = "Estándar (2)";
+                } else if (log.valor === "3") {
+                    color = "#15803d";
+                    textVal = "Excelente (3)";
+                } else {
+                    textVal = log.valor;
+                }
+                
+                const logRow = document.createElement("div");
+                logRow.style.fontSize = "0.82em";
+                logRow.style.color = "#4a5568";
+                logRow.style.display = "flex";
+                logRow.style.gap = "8px";
+                logRow.style.alignItems = "flex-start";
+                logRow.style.padding = "6px 8px";
+                logRow.style.background = "white";
+                logRow.style.borderRadius = "6px";
+                logRow.style.border = "1px solid #eef2f6";
+                logRow.style.boxShadow = "0 1px 2px rgba(0,0,0,0.01)";
+                
+                logRow.innerHTML = `
+                    <span style="color: #94a3b8; font-family: monospace; font-weight: 600;">[${log.fecha}]</span>
+                    <span>El usuario <strong>${log.usuario}</strong> actualizó <strong>${log.indicador}</strong> a 
+                    <span style="font-weight: bold; color: ${color};">${textVal}</span></span>
+                `;
+                container.appendChild(logRow);
+            });
+        }
+    } catch (err) {
+        console.error("Error al cargar timeline 360:", err);
+        container.innerHTML = '<p style="color: #c0392b; font-size: 0.82em; margin: 0;">Error al cargar el historial.</p>';
+    }
+}
+
+function mostrarExplicacionValoracion(element, actitud, valor) {
+    const tooltip = document.getElementById("valoracion-tooltip");
+    const title = document.getElementById("tooltip-actitud-title");
+    const desc = document.getElementById("tooltip-actitud-desc");
+    if (!tooltip || !title || !desc) return;
+    
+    const explicacion = EXPLICACIONES_VALORACION[actitud] ? EXPLICACIONES_VALORACION[actitud][valor] : "";
+    if (!explicacion) return;
+    
+    let nivelTexto = "";
+    let colorBorde = "#10b981";
+    let colorTitulo = "#34d399";
+    if (valor === 1) {
+        nivelTexto = "1 - Insuficiente";
+        colorBorde = "#ef4444";
+        colorTitulo = "#f87171";
+    } else if (valor === 2) {
+        nivelTexto = "2 - Estándar";
+        colorBorde = "#f59e0b";
+        colorTitulo = "#fbbf24";
+    } else {
+        nivelTexto = "3 - Excelente";
+        colorBorde = "#10b981";
+        colorTitulo = "#34d399";
+    }
+    
+    title.textContent = `${actitud} (${nivelTexto})`;
+    title.style.color = colorTitulo;
+    desc.textContent = explicacion;
+    tooltip.style.borderLeftColor = colorBorde;
+    
+    tooltip.style.position = "fixed";
+    tooltip.style.display = "block";
+    tooltip.style.opacity = "0";
+    
+    const rect = element.getBoundingClientRect();
+    const tooltipHeight = tooltip.offsetHeight;
+    
+    // Centrar horizontalmente arriba del botón (relativo al viewport ya que es fixed)
+    const top = rect.top - tooltipHeight - 10;
+    const left = rect.left + (rect.width / 2) - 150;
+    
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.opacity = "1";
+}
+
+function ocultarExplicacionValoracion() {
+    const tooltip = document.getElementById("valoracion-tooltip");
+    if (tooltip) {
+        tooltip.style.display = "none";
+    }
+}
+
+const EXPLICACIONES_VALORACION = {
+    "Rigor y Calidad de Ejecución": {
+        1: "Comete fallos graves de forma reiterada (cantidades incorrectas, productos cambiados, omisión de líneas, mercancía dañada o carros desordenados).",
+        2: "Ejecución limpia según el método establecido. Si ocurre un fallo menor (etiqueta o nivel desplazado), lo corrige en el acto sin frenar el flujo.",
+        3: "Conteo exacto en el primer pase, estiba ordenada y segura, protección del producto y cero incidencias registradas."
+    },
+    "Receptividad al Feedback": {
+        1: "Actitud defensiva o de bloqueo ante las correcciones del revisor; no subsana el error o vuelve a cometerlo en la siguiente orden.",
+        2: "Acepta las observaciones con profesionalidad, arregla la incidencia de inmediato y aplica el aprendizaje en los siguientes carros.",
+        3: "Trato colaborativo; agradece la notificación, pregunta dudas para erradicar la causa raíz y facilita activamente la labor de revisión."
+    },
+    "Iniciativa y Ritmo Operativo": {
+        1: "Tiempos muertos no justificados; permanece inactivo tras finalizar una tarea a la espera de instrucciones directas.",
+        2: "Flujo de trabajo continuo y autónomo; entrega el carro revisado y acude de inmediato a por la siguiente orden.",
+        3: "Dinamismo y anticipación; retira carros vacíos, organiza materiales y ayuda a despejar cuellos de botella sin descuidar su puesto."
+    },
+    "Comprensión y Comunicación (Idioma y Lectura)": {
+        1: "Dificultad para comprender instrucciones verbales básicas o interpretar códigos alfanuméricos en etiquetas/pantalla; requiere traducción constante.",
+        2: "Comunicación funcional; comprende órdenes de trabajo habituales, confirma mensajes de seguridad y lee códigos y ubicaciones sin apoyo.",
+        3: "Comunicación fluida y precisa; expresa incidencias técnicas con claridad y asiste como puente lingüístico a compañeros con barrera idiomática."
+    },
+    "Resolución y Agilidad Numérica (Cálculo Operativo)": {
+        1: "Bloqueo en operaciones matemáticas elementales (sumas, restas, divisiones simples); comete errores en el conteo de unidades o capas.",
+        2: "Resuelve cálculos de picking (descomposición de unidades, paquetes por bulto) en tiempo estándar sin generar descuadres.",
+        3: "Rapidez de cálculo mental instantánea; optimiza la distribución y cubicaje de la carga y detecta discrepancias numéricas de inmediato."
+    },
+    "Manejo Técnico de Herramientas (Terminal PDA)": {
+        1: "Uso lento o torpe del dispositivo; comete errores frecuentes de escaneo, se pierde en la navegación o bloquea el flujo digital.",
+        2: "Uso fluido y autónomo; escanea en la secuencia correcta, confirma pantallas con soltura y opera sin asistencia técnica.",
+        3: "Dominio total de la interfaz; ataja pasos dentro de la operativa, reporta incidencias digitales correctamente y resuelve bloqueos básicos de sesión."
+    }
+};
 
 function actualizarRadarChart(valores) {
     const ctx = document.getElementById("radarChartActitudinal");
@@ -1608,7 +2197,14 @@ function actualizarRadarChart(valores) {
         return;
     }
 
-    const labels = ["Proactividad", "Autonomía", "Disposición", "Respeto normativo", "Receptividad", "Uso PDA"];
+    const labels = [
+        "Rigor y Calidad de Ejecución",
+        "Receptividad al Feedback",
+        "Iniciativa y Ritmo Operativo",
+        "Comprensión y Comunicación (Idioma y Lectura)",
+        "Resolución y Agilidad Numérica (Cálculo Operativo)",
+        "Manejo Técnico de Herramientas (Terminal PDA)"
+    ];
     const datos = labels.map(label => valores[label] || 0);
 
     // Si ya existe el gráfico, simplemente actualizamos sus datos
@@ -1640,7 +2236,7 @@ function actualizarRadarChart(valores) {
         options.scale = {
             ticks: {
                 beginAtZero: true,
-                max: 5,
+                max: 3,
                 stepSize: 1,
                 fontSize: 9,
                 fontColor: '#94a3b8',
@@ -1653,7 +2249,7 @@ function actualizarRadarChart(valores) {
                 color: '#edf2ee'
             },
             pointLabels: {
-                fontSize: 10,
+                fontSize: 9,
                 fontStyle: '600',
                 fontFamily: 'Outfit, sans-serif',
                 fontColor: '#2d3748'
@@ -1674,14 +2270,14 @@ function actualizarRadarChart(valores) {
                 },
                 pointLabels: {
                     font: {
-                        size: 10,
+                        size: 9,
                         weight: '600',
                         family: 'Outfit, sans-serif'
                     },
                     color: '#2d3748'
                 },
                 suggestedMin: 0,
-                suggestedMax: 5,
+                suggestedMax: 3,
                 ticks: {
                     stepSize: 1,
                     color: '#94a3b8',
@@ -1783,111 +2379,46 @@ function formatearResumenAnalitico(text, persona) {
     
     const lines = text.split("\n");
     
-    // Secciones para agrupar
-    let generalStateHeader = "";
+    let html = "";
     let conclusionHeader = "";
     let conclusionParagraphs = [];
-    let speedHeader = "";
-    let speedLines = [];
-    let qualityHeader = "";
-    let qualityLines = [];
-    let attitudeHeader = "";
-    let attitudeLines = [];
-    
-    let currentSection = "general";
+    let grupo1Lines = [];
+    let grupo2Lines = [];
+    let currentSection = "general"; // 'general', 'g1', 'g2'
     
     lines.forEach(line => {
         let trimmed = line.trim();
         if (!trimmed) return;
         
-        // Omitir líneas redundantes de Empleado y Tiempo transcurrido
-        if (trimmed.includes("Empleado:") || trimmed.includes("Tiempo transcurrido:")) {
+        let lower = trimmed.toLowerCase();
+        if (lower.includes("estado general del periodo de prueba")) {
+            currentSection = "general";
+            return;
+        } else if (lower.includes("grupo 1:") || (lower.includes("grupo 1") && lower.includes("rendimiento"))) {
+            currentSection = "g1";
+            return;
+        } else if (lower.includes("grupo 2:") || (lower.includes("grupo 2") && lower.includes("competencia"))) {
+            currentSection = "g2";
             return;
         }
         
-        // Determinar si es un encabezado principal
-        let isHeader = false;
-        let headerText = trimmed;
-        
-        if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
-            headerText = trimmed.replace(/\*\*/g, "").trim();
-            isHeader = true;
-        } else {
-            let lower = trimmed.toLowerCase();
-            if (
-                lower.includes("estado general del periodo de prueba") ||
-                lower.startsWith("estado general") ||
-                lower.includes("conclusión:") || 
-                lower.includes("conclusion:") || 
-                lower.includes("conclusión ") || 
-                lower.includes("conclusion ") || 
-                lower.startsWith("⚠️ conclusión") || 
-                lower.startsWith("⚠️ conclusion") ||
-                lower.startsWith("1. ") || 
-                lower.startsWith("2. ") || 
-                lower.startsWith("3. ")
-            ) {
-                isHeader = true;
-            }
-        }
-
-        if (isHeader) {
-            let lower = headerText.toLowerCase();
-            
-            if (lower.includes("estado general")) {
-                generalStateHeader = headerText;
-                currentSection = "general";
-            } else if (lower.includes("conclusión") || lower.includes("conclusion")) {
-                // Limpiar emojis iniciales para evitar duplicados en el HTML
-                conclusionHeader = headerText.replace(/^[⚠️\s]+/, "").trim();
-                currentSection = "conclusion";
-            } else if (lower.includes("1.") || lower.includes("velocidad")) {
-                speedHeader = headerText;
-                currentSection = "speed";
-            } else if (lower.includes("2.") || lower.includes("calidad")) {
-                qualityHeader = headerText;
-                currentSection = "quality";
-            } else if (lower.includes("3.") || lower.includes("actitudinal") || lower.includes("conducta")) {
-                attitudeHeader = headerText;
-                currentSection = "attitude";
+        if (currentSection === "general") {
+            if (trimmed.includes("⚠️") || lower.includes("conclusión:") || lower.includes("conclusion:")) {
+                conclusionHeader = trimmed;
             } else {
-                if (currentSection === "conclusion") {
-                    conclusionParagraphs.push(line);
-                } else if (currentSection === "speed") {
-                    speedLines.push(line);
-                } else if (currentSection === "quality") {
-                    qualityLines.push(line);
-                } else if (currentSection === "attitude") {
-                    attitudeLines.push(line);
-                } else {
-                    generalStateHeader = headerText;
-                }
+                conclusionParagraphs.push(trimmed);
             }
-        } else {
-            if (currentSection === "conclusion") {
-                conclusionParagraphs.push(line);
-            } else if (currentSection === "speed") {
-                speedLines.push(line);
-            } else if (currentSection === "quality") {
-                qualityLines.push(line);
-            } else if (currentSection === "attitude") {
-                attitudeLines.push(line);
-            } else {
-                if (trimmed.toLowerCase().includes("estado general")) {
-                    generalStateHeader = trimmed;
-                }
-            }
+        } else if (currentSection === "g1") {
+            grupo1Lines.push(trimmed);
+        } else if (currentSection === "g2") {
+            grupo2Lines.push(trimmed);
         }
     });
     
-    // Armar el HTML ordenando: 1. Estado General -> 2. Recuadro Conclusión -> 3. Velocidad -> 4. Calidad -> 5. Actitud
-    let html = "";
+    // 1. Cabecera principal
+    html += `<h4 style="font-size: 1.1em; font-weight: 800; color: #2b6cb0; margin-top: 5px; margin-bottom: 8px; text-transform: uppercase; font-family: inherit;">ESTADO GENERAL DEL PERIODO DE PRUEBA</h4>`;
     
-    // 1. Estado General
-    let gHeader = generalStateHeader || "ESTADO GENERAL DEL PERIODO DE PRUEBA";
-    html += `<h4 style="font-size: 1.1em; font-weight: 800; color: #2b6cb0; margin-top: 10px; margin-bottom: 8px; text-transform: uppercase; font-family: inherit;">${gHeader}</h4>`;
-    
-    // 2. Recuadro de Conclusión
+    // 2. Recuadro de Conclusión y Nota
     if (conclusionHeader) {
         let color = "#b7791f"; // amarillo/naranja por defecto
         let bgColor = "#fefcbf";
@@ -1904,83 +2435,99 @@ function formatearResumenAnalitico(text, persona) {
             borderColor = "#9ae6b4";
         }
         
-        html += `<div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-left: 5px solid ${color}; padding: 14px 16px; border-radius: 8px; margin-top: 12px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); font-family: inherit;">
-            <h5 style="margin: 0 0 8px 0; font-size: 1.05em; font-weight: 800; color: ${color}; font-family: inherit; display: flex; align-items: center; gap: 6px;">
-                ⚠️ ${conclusionHeader}
-            </h5>`;
+        // Intentar extraer la nota sobre 10
+        let notaMatch = conclusionHeader.match(/nota\s+global:\s*([\d.,]+)\s*\/\s*10/i);
+        let notaHtml = "";
+        if (notaMatch && notaMatch[1]) {
+            let nota = notaMatch[1];
+            let badgeBg = "#edf2f7";
+            let badgeColor = "#4a5568";
+            let notaNum = parseFloat(nota.replace(",", "."));
+            if (notaNum >= 8) {
+                badgeBg = "#c6f6d5"; // verde claro
+                badgeColor = "#22543d";
+            } else if (notaNum >= 5) {
+                badgeBg = "#feebc8"; // naranja claro
+                badgeColor = "#744210";
+            } else {
+                badgeBg = "#fed7d7"; // rojo claro
+                badgeColor = "#742a2a";
+            }
+            notaHtml = `<span style="background: ${badgeBg}; color: ${badgeColor}; padding: 3px 8px; border-radius: 6px; font-weight: 800; font-size: 0.85em; display: inline-block; vertical-align: middle;">Nota: ${nota}/10</span>`;
+        }
+        
+        // Limpiar emojis iniciales, remover la nota global del título para no duplicarla y limpiar formato markdown
+        let cleanTitle = conclusionHeader.replace(/\s*\|\s*nota\s+global:\s*[\d.,]+\s*\/\s*10/i, "").trim();
+        cleanTitle = cleanTitle.replace(/^[\*\s⚠️]+/, "").replace(/[\*\s]+$/, "").replace(/\*\*/g, "").trim();
+        
+        html += `<div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-left: 5px solid ${color}; padding: 14px 16px; border-radius: 8px; margin-top: 10px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); font-family: inherit; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 12px; width: 100%; border-bottom: 1px solid ${borderColor}; padding-bottom: 6px; margin-bottom: 2px;">
+                <h5 style="margin: 0; font-size: 1.05em; font-weight: 800; color: ${color}; font-family: inherit; display: flex; align-items: center; gap: 6px;">
+                    ⚠️ ${cleanTitle}
+                </h5>
+                ${notaHtml}
+            </div>`;
             
         conclusionParagraphs.forEach(line => {
-            let clean = line.trim().replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+            let clean = line.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
             html += `<p style="margin: 0; font-size: 0.95em; color: #4a5568; line-height: 1.5; text-align: justify; font-family: inherit;">${clean}</p>`;
         });
         
         html += `</div>`;
     }
     
-    // Función auxiliar para renderizar líneas de sección
-    const renderSectionLines = (lines) => {
+    // Función auxiliar para renderizar viñetas de los dos grupos
+    const renderGrupoLines = (lines) => {
         let sHtml = "";
         lines.forEach(line => {
             let trimmed = line.trim();
-            if (trimmed.startsWith("*") || trimmed.startsWith("-")) {
-                let clean = trimmed.substring(1).trim().replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-                sHtml += `<div style="margin-left: 12px; margin-bottom: 5px; font-size: 0.95em; color: #4a5568; line-height: 1.45; display: flex; align-items: flex-start; gap: 6px;">
-                    <span style="color:#173D2D;">•</span>
+            if (trimmed.startsWith("*") || trimmed.startsWith("•") || trimmed.startsWith("-")) {
+                let clean = trimmed.substring(1).trim();
+                clean = clean.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+                
+                if (clean.includes(":")) {
+                    let parts = clean.split(":");
+                    let label = parts[0].trim();
+                    let desc = parts.slice(1).join(":").trim();
+                    clean = `<strong>${label}:</strong> ${desc}`;
+                }
+                
+                sHtml += `<div style="margin-left: 5px; margin-bottom: 8px; font-size: 0.92em; color: #4a5568; line-height: 1.45; display: flex; align-items: flex-start; gap: 6px;">
+                    <span style="color:#2b6cb0; font-size: 1.1em; line-height: 1.1;">•</span>
                     <span>${clean}</span>
                 </div>`;
             } else {
                 let clean = trimmed.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-                sHtml += `<p style="margin-top: 6px; margin-bottom: 10px; font-size: 0.95em; color: #4a5568; line-height: 1.45; text-align: justify; font-family: inherit;">${clean}</p>`;
+                sHtml += `<p style="margin-top: 6px; margin-bottom: 10px; font-size: 0.92em; color: #4a5568; line-height: 1.45; text-align: justify; font-family: inherit;">${clean}</p>`;
             }
         });
         return sHtml;
     };
     
-    // 3. Progreso de Velocidad
-    if (speedHeader) {
-        let speed = "--";
-        if (window.currentMetrics && window.currentMetrics.lines_hour !== undefined) {
-            speed = `${window.currentMetrics.lines_hour} l/h (${window.currentMetrics.productivity_pct}%)`;
-        } else if (persona && persona.productividad_media) {
-            speed = `${persona.productividad_media} l/h`;
-        }
-        let badgeHtml = `<div style="background: #ebf8ff; color: #2b6cb0; font-size: 0.85em; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #bee3f8; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-            🚀 Velocidad Actual: <strong>${speed}</strong>
-        </div>`;
-        
-        html += `<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px;">
-            <h4 style="font-size: 1.02em; font-weight: 700; color: #173D2D; margin: 0; font-family: inherit;">${speedHeader}</h4>
-            ${badgeHtml}
-        </div>`;
-        html += renderSectionLines(speedLines);
+    // 3. Renderizar los dos grupos
+    // Grupo 1: Rendimiento y Producción
+    html += `<div style="margin-top: 15px; margin-bottom: 15px; border: 1px solid #edf2ee; border-radius: 8px; padding: 12px; background: #fafcfa;">
+        <h4 style="font-size: 0.95em; font-weight: 800; color: #173D2D; margin-top: 0; margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; text-transform: uppercase;">
+            📊 Grupo 1: Rendimiento y Producción
+        </h4>`;
+    if (grupo1Lines.length > 0) {
+        html += renderGrupoLines(grupo1Lines);
+    } else {
+        html += `<p style="font-size:0.9em; color:#718096; font-style:italic; margin:0;">Sin datos de producción registrados.</p>`;
     }
+    html += `</div>`;
     
-    // 4. Calidad y Precisión
-    if (qualityHeader) {
-        let error = "--";
-        if (window.currentMetrics && window.currentMetrics.error_pct !== undefined) {
-            error = `${window.currentMetrics.error_pct}%`;
-        } else if (persona && persona.error_medio) {
-            error = persona.error_medio;
-        }
-        let badgeHtml = `<div style="background: #fff5f5; color: #c53030; font-size: 0.85em; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #fed7d7; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
-            🎯 Tasa Error: <strong>${error}</strong>
-        </div>`;
-        
-        html += `<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px;">
-            <h4 style="font-size: 1.02em; font-weight: 700; color: #173D2D; margin: 0; font-family: inherit;">${qualityHeader}</h4>
-            ${badgeHtml}
-        </div>`;
-        html += renderSectionLines(qualityLines);
+    // Grupo 2: Competencias, Conducta y Seguimiento
+    html += `<div style="margin-top: 15px; margin-bottom: 15px; border: 1px solid #edf2ee; border-radius: 8px; padding: 12px; background: #fafcfa;">
+        <h4 style="font-size: 0.95em; font-weight: 800; color: #173D2D; margin-top: 0; margin-bottom: 10px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 6px; text-transform: uppercase;">
+            🛠️ Grupo 2: Competencias, Conducta y Seguimiento
+        </h4>`;
+    if (grupo2Lines.length > 0) {
+        html += renderGrupoLines(grupo2Lines);
+    } else {
+        html += `<p style="font-size:0.9em; color:#718096; font-style:italic; margin:0;">Sin registros de seguimiento.</p>`;
     }
-    
-    // 5. Valoración Actitudinal
-    if (attitudeHeader) {
-        html += `<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; margin-bottom: 8px; border-bottom: 1px solid #edf2f7; padding-bottom: 6px;">
-            <h4 style="font-size: 1.02em; font-weight: 700; color: #173D2D; margin: 0; font-family: inherit;">${attitudeHeader}</h4>
-        </div>`;
-        html += renderSectionLines(attitudeLines);
-    }
+    html += `</div>`;
     
     return html;
 }
@@ -2162,6 +2709,14 @@ let lastSemaforoArgs = null;
 function actualizarCabeceraSemaforo(actual_prod, prod_ideal, actual_error, error_ideal) {
     const alertContainer = document.getElementById("alerta-codigo-container");
     if (!alertContainer) return;
+
+    const dept = window.currentPersona && window.currentPersona.departamento 
+        ? window.currentPersona.departamento.toUpperCase().trim() 
+        : "";
+    if (dept && dept.includes("ENCAJADO")) {
+        alertContainer.style.display = "none";
+        return;
+    }
     
     if (actual_prod !== undefined) {
         lastSemaforoArgs = { actual_prod, prod_ideal, actual_error, error_ideal };
@@ -2262,6 +2817,11 @@ async function cargarHistorialSacador() {
     const badgeNota = document.getElementById("nota-sacador-badge");
     const tbody = document.getElementById("historial-sacador-body");
     const panel = document.getElementById("panel-historial-sacador");
+    
+    const badgeNotaEnc = document.getElementById("nota-encajador-badge");
+    const tbodyEnc = document.getElementById("historial-encajador-body");
+    const panelEnc = document.getElementById("panel-historial-encajador");
+    
     if (!tbody || !panel) return;
     
     // Obtener departamento para validar si debemos mostrar el panel
@@ -2269,11 +2829,99 @@ async function cargarHistorialSacador() {
         ? window.currentPersona.departamento.toUpperCase().trim() 
         : "";
         
-    // Si no es un departamento de sacadores o taller natural, ocultar el panel
-    if (dept && !dept.includes("SACADO") && !dept.includes("TALLER NATURAL")) {
+    // Si es un departamento de encajadores
+    if (dept && dept.includes("ENCAJADO")) {
         panel.style.display = "none";
+        if (panelEnc) panelEnc.style.display = "flex";
+        
+        if (!tbodyEnc) return;
+        
+        try {
+            const res = await fetch(`/api/persona/${id}/historial-encajador`);
+            const data = await res.json();
+            
+            if (!data || data.length === 0) {
+                tbodyEnc.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 30px; color: #999; font-style: italic;">
+                            No hay registros de embalaje para este trabajador en los últimos 14 días.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Renderizar las filas de la tabla de encajador
+            let html = "";
+            data.forEach(row => {
+                const vol_h = row.volumen_hora !== undefined && row.volumen_hora !== null ? `${parseFloat(row.volumen_hora).toFixed(2)} m³` : "-";
+                const lh = row.lineas_hora || "-";
+                const tot = row.total_lineas || "0";
+                
+                // Rendimiento %
+                const rendRaw = parseFloat(row.rendimiento) || 0.0;
+                const rendPct = Math.round(rendRaw * 100);
+                const rendText = `${rendPct}%`;
+                
+                // Barra de porcentaje visual para líneas/hora (basado en meta excelente de 120 para encajador)
+                const pct = Math.min(100, Math.round((parseFloat(lh) || 0) / 120 * 100));
+                let barColor = "#e53e3e"; // Rojo
+                if (pct >= 85) barColor = "#38a169"; // Verde
+                else if (pct >= 60) barColor = "#dd6b20"; // Naranja
+                else if (pct >= 40) barColor = "#d69e2e"; // Amarillo
+                
+                const progressHtml = `
+                    <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
+                        <span style="font-weight: 700;">${lh}</span>
+                        <div style="width: 50px; background: #e2e8f0; height: 6px; border-radius: 4px; overflow: hidden; display: inline-block; vertical-align: middle;">
+                            <div style="background: ${barColor}; width: ${pct}%; height: 100%;"></div>
+                        </div>
+                    </div>
+                `;
+                
+                html += `
+                    <tr style="border-bottom: 1px solid #edf2ee; transition: background 0.2s;">
+                        <td style="padding: 12px 6px;">${row.fecha || "-"}</td>
+                        <td style="padding: 12px 6px; text-align: right;">${progressHtml}</td>
+                        <td style="padding: 12px 6px; text-align: right; font-weight: 600;">${tot}</td>
+                        <td style="padding: 12px 6px; text-align: right; color: #4a5568;">${vol_h}</td>
+                        <td style="padding: 12px 6px; text-align: right; font-weight: 700; color: ${rendPct >= 85 ? '#2f855a' : '#c53030'};">${rendText}</td>
+                    </tr>
+                `;
+            });
+            tbodyEnc.innerHTML = html;
+            
+            // Mostrar nota si existe en el badge de encajadores
+            if (window.currentPersona && window.currentPersona.nota > 0) {
+                if (badgeNotaEnc) {
+                    badgeNotaEnc.textContent = `Nota General: ${window.currentPersona.nota.toFixed(2)} / 10`;
+                    badgeNotaEnc.style.display = "inline-block";
+                }
+            } else {
+                if (badgeNotaEnc) badgeNotaEnc.style.display = "none";
+            }
+        } catch (err) {
+            console.error("Error loading encajador history:", err);
+            tbodyEnc.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 20px; color: #e53e3e; font-style: italic;">
+                        Error al cargar el historial de embalaje.
+                    </td>
+                </tr>
+            `;
+        }
         return;
     }
+    
+    // Si no es un departamento de sacadores o taller natural, ocultar el panel de sacador y encajador
+    if (dept && !dept.includes("SACADO") && !dept.includes("TALLER NATURAL")) {
+        panel.style.display = "none";
+        if (panelEnc) panelEnc.style.display = "none";
+        return;
+    }
+    
+    if (panelEnc) panelEnc.style.display = "none";
+    panel.style.display = "flex";
     
     try {
         const res = await fetch(`/api/persona/${id}/historial-sacador`);
